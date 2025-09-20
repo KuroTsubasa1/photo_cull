@@ -155,16 +155,28 @@ def create_thumbnail(file_path: str, output_path: str, size: Tuple[int, int] = (
     
     try:
         if is_raw_file(file_path):
-            # Handle raw file
+            # Special handling for CR3 files which LibRaw doesn't support well
+            if Path(file_path).suffix.lower() == '.cr3':
+                try:
+                    from .raw_utils_imageio import create_cr3_thumbnail
+                    if create_cr3_thumbnail(file_path, output_path, size):
+                        print(f"[thumb] Created CR3 thumbnail using alternative method: {Path(output_path).name}")
+                        return True
+                except ImportError:
+                    pass
+                
+            # Try standard raw processing
             img = create_raw_thumbnail_pil(file_path, size)
             if img:
                 # Convert to RGB if needed (some raw files might be RGBA)
                 if img.mode != 'RGB':
                     img = img.convert('RGB')
                 img.save(output_path, 'JPEG', quality=85, optimize=True)
+                print(f"[thumb] Successfully created thumbnail: {Path(output_path).name}")
                 return True
             else:
                 # Raw thumbnail failed, might not be a supported raw format
+                print(f"[thumb] Failed to process raw file: {Path(file_path).name}")
                 return False
         else:
             # Handle standard image

@@ -124,15 +124,17 @@ def read_timestamp(img_path: str) -> float:
     from pathlib import Path
     
     # Check if it's a raw file and try to get metadata from rawpy first
-    raw_extensions = {'.cr2', '.cr3', '.crw', '.nef', '.nrw', '.arw', '.raf', '.orf', '.rw2', '.dng'}
-    if Path(img_path).suffix.lower() in raw_extensions:
-        try:
-            import rawpy
-            with rawpy.imread(img_path) as raw:
-                if raw.timestamp:
-                    return float(raw.timestamp)
-        except Exception:
-            pass  # Fall back to standard EXIF
+    # DISABLED: This causes "File format not recognized" errors for CR3 files
+    # CR3 files should use standard EXIF extraction instead
+    # raw_extensions = {'.cr2', '.nef', '.nrw', '.arw', '.raf', '.orf', '.rw2', '.dng'}
+    # if Path(img_path).suffix.lower() in raw_extensions:
+    #     try:
+    #         import rawpy
+    #         with rawpy.imread(img_path) as raw:
+    #             if raw.timestamp:
+    #                 return float(raw.timestamp)
+    #     except Exception:
+    #         pass  # Fall back to standard EXIF
     
     try:
         with open(img_path, 'rb') as f:

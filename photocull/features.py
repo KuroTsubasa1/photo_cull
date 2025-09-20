@@ -37,9 +37,17 @@ class ImageMetrics:
     thumbnail_path: str = ""
     
     def to_dict(self):
-        d = vars(self).copy()
-        if self.embedding is not None:
-            d['embedding'] = self.embedding.tolist()
+        import numpy as np
+        d = {}
+        for key, value in vars(self).items():
+            if isinstance(value, np.ndarray):
+                d[key] = value.tolist()
+            elif isinstance(value, (np.float32, np.float64)):
+                d[key] = float(value)
+            elif isinstance(value, (np.int32, np.int64)):
+                d[key] = int(value)
+            else:
+                d[key] = value
         return d
 
 
