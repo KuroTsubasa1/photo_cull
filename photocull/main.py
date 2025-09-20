@@ -17,12 +17,45 @@ from .clustering import (
 
 def list_images(directory: str) -> List[str]:
     """List all image files in a directory"""
-    extensions = {'.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.webp'}
+    # Standard image formats
+    image_extensions = {'.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.webp'}
+    
+    # Raw formats from various manufacturers
+    raw_extensions = {
+        # Canon
+        '.cr2', '.cr3', '.crw',
+        # Nikon
+        '.nef', '.nrw',
+        # Sony
+        '.arw', '.srf', '.sr2',
+        # Fujifilm
+        '.raf',
+        # Olympus
+        '.orf',
+        # Panasonic
+        '.rw2',
+        # Pentax
+        '.pef', '.ptx',
+        # Adobe
+        '.dng',
+        # Phase One
+        '.iiq',
+        # Leica
+        '.rwl', '.raw',
+        # Hasselblad
+        '.3fr',
+        # Sigma
+        '.x3f',
+        # Samsung
+        '.srw'
+    }
+    
+    all_extensions = image_extensions | raw_extensions
     path = Path(directory)
     
     images = []
     for file in path.rglob('*'):
-        if file.is_file() and file.suffix.lower() in extensions:
+        if file.is_file() and file.suffix.lower() in all_extensions:
             images.append(str(file))
     
     return sorted(images)

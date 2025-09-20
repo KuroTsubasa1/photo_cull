@@ -4,6 +4,7 @@ A fast, local-first photo culling tool that uses perceptual hashing, classical c
 
 ## Features
 
+- **Raw file support**: Handles Canon CR3, CR2, Nikon NEF, Sony ARW, and other major raw formats
 - **Burst detection**: Groups photos by EXIF timestamp (or file mtime) with configurable gap threshold
 - **Near-duplicate detection**: Uses pHash and dHash with Hamming distance
 - **Quality metrics**:
@@ -71,6 +72,26 @@ Default thresholds (tunable via code):
 - Blur threshold: ~150-300 variance (camera-dependent)
 - Eyes closed: EAR < 0.22
 
+## Supported File Formats
+
+### Standard Formats
+- JPEG (.jpg, .jpeg)
+- PNG (.png)
+- WebP (.webp)
+- BMP (.bmp)
+- TIFF (.tif, .tiff)
+
+### Raw Formats
+- **Canon**: CR2, CR3, CRW
+- **Nikon**: NEF, NRW
+- **Sony**: ARW, SRF, SR2
+- **Fujifilm**: RAF
+- **Olympus**: ORF
+- **Panasonic**: RW2
+- **Pentax**: PEF, PTX
+- **Adobe**: DNG
+- **Others**: Leica (RWL), Hasselblad (3FR), Phase One (IIQ), Sigma (X3F)
+
 ## Requirements
 
 - Python 3.8+
@@ -79,4 +100,6 @@ Default thresholds (tunable via code):
 - NumPy
 - Pillow
 - imagehash
+- rawpy (for raw file support)
+- imageio
 - Optional: CLIP (transformers), FAISS

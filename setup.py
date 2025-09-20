@@ -25,6 +25,8 @@ setup(
         "imagehash>=4.3.0",
         "python-dateutil>=2.8.0",
         "ExifRead>=3.0.0",
+        "rawpy>=0.18.0",
+        "imageio>=2.31.0",
     ],
     extras_require={
         "embeddings": [

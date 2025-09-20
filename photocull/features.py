@@ -243,15 +243,15 @@ class FeatureExtractor:
     def extract_all_features(self, img_path: str) -> ImageMetrics:
         """Extract all features from an image"""
         import os
+        from .raw_utils import load_image_universal
         
         metrics = ImageMetrics(path=img_path)
         
         try:
-            # Load image
-            img_pil = Image.open(img_path).convert('RGB')
-            img_cv = cv2.imread(img_path)
+            # Load image (handles both standard and raw formats)
+            img_cv, img_pil = load_image_universal(img_path)
             
-            if img_cv is None:
+            if img_cv is None or img_pil is None:
                 return metrics
             
             metrics.width = img_pil.width
