@@ -203,10 +203,28 @@ def score_images(metrics_list: List) -> None:
         for m in metrics_list:
             m.sharpness_z = 0.0
     
-    # Compute final scores
+    # Compute final scores with blur penalties
     for m in metrics_list:
-        m.score = (
-            0.5 * m.sharpness_z +
+        # Base score from original metrics
+        base_score = (
+            0.4 * m.sharpness_z +  # Reduced from 0.5 to make room for blur
             0.25 * m.eyes_open +
             0.15 * m.exposure_ok
         )
+        
+        # Add blur score (0-1, higher = less blurry)
+        blur_penalty = 0.2 * m.blur_score  # 20% weight for blur
+        
+        # Additional penalty for motion blur
+        if m.has_motion_blur:
+            blur_penalty -= 0.1  # 10% penalty for motion blur
+        
+        # For portraits with faces, consider face blur
+        if m.face_count > 0 and m.face_blur_scores:
+            # Average face blur score
+            avg_face_blur = sum(m.face_blur_scores) / len(m.face_blur_scores)
+            # If faces are blurry, apply additional penalty
+            if avg_face_blur < 0.5:
+                blur_penalty -= 0.05 * (1 - avg_face_blur)
+        
+        m.score = base_score + blur_penalty

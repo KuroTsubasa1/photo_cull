@@ -7,7 +7,8 @@ A fast, local-first photo culling tool that uses perceptual hashing, classical c
 - **Burst detection**: Groups photos by EXIF timestamp (or file mtime) with configurable gap threshold
 - **Near-duplicate detection**: Uses pHash and dHash with Hamming distance
 - **Quality metrics**:
-  - Sharpness (variance of Laplacian)
+  - Sharpness (variance of Laplacian & Tenengrad)
+  - Blur detection (global, face-region, and motion blur)
   - Exposure quality (histogram clipping analysis)
   - Eyes-open detection (MediaPipe Face Mesh + EAR)
   - Face counting
@@ -54,9 +55,11 @@ output/
 1. **Burst grouping**: Images are grouped by timestamp (EXIF or mtime) with a configurable gap
 2. **Hash clustering**: Within each burst, near-duplicates are identified using perceptual hashes
 3. **Quality scoring**: Each image gets scored based on:
-   - Sharpness (50% weight)
+   - Sharpness (40% weight)
+   - Blur detection (20% weight) 
    - Eyes-open percentage (25% weight)  
    - Exposure quality (15% weight)
+   - Additional penalties for motion blur and face blur
 4. **Winner selection**: Highest-scoring image per cluster is selected
 5. **Review**: Optional UI for manual override of selections
 

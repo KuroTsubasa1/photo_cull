@@ -236,11 +236,27 @@ function createImageCard(imageData, score, isWinner, clusterId) {
     const metrics = document.createElement('div');
     metrics.className = 'image-metrics';
     
-    // Sharpness
-    const sharpMetric = document.createElement('span');
-    sharpMetric.className = 'metric' + (imageData.sharpness > 100 ? ' good' : '');
-    sharpMetric.textContent = `Sharp: ${imageData.sharpness.toFixed(0)}`;
-    metrics.appendChild(sharpMetric);
+    // Blur status
+    if (imageData.is_blurry !== undefined) {
+        const blurMetric = document.createElement('span');
+        blurMetric.className = 'metric' + (imageData.is_blurry ? ' warning' : ' good');
+        blurMetric.textContent = imageData.is_blurry ? 'Blurry' : 'Sharp';
+        metrics.appendChild(blurMetric);
+    } else {
+        // Fallback to old sharpness metric
+        const sharpMetric = document.createElement('span');
+        sharpMetric.className = 'metric' + (imageData.sharpness > 100 ? ' good' : '');
+        sharpMetric.textContent = `Sharp: ${imageData.sharpness.toFixed(0)}`;
+        metrics.appendChild(sharpMetric);
+    }
+    
+    // Motion blur indicator
+    if (imageData.has_motion_blur) {
+        const motionMetric = document.createElement('span');
+        motionMetric.className = 'metric warning';
+        motionMetric.textContent = 'Motion blur';
+        metrics.appendChild(motionMetric);
+    }
     
     // Eyes open
     if (imageData.face_count > 0) {
@@ -248,6 +264,15 @@ function createImageCard(imageData, score, isWinner, clusterId) {
         eyesMetric.className = 'metric' + (imageData.eyes_open > 0.5 ? ' good' : ' warning');
         eyesMetric.textContent = `Eyes: ${(imageData.eyes_open * 100).toFixed(0)}%`;
         metrics.appendChild(eyesMetric);
+    }
+    
+    // Face blur for portraits
+    if (imageData.face_blur_scores && imageData.face_blur_scores.length > 0) {
+        const avgFaceBlur = imageData.face_blur_scores.reduce((a, b) => a + b) / imageData.face_blur_scores.length;
+        const faceBlurMetric = document.createElement('span');
+        faceBlurMetric.className = 'metric' + (avgFaceBlur > 0.5 ? ' good' : ' warning');
+        faceBlurMetric.textContent = `Face blur: ${(avgFaceBlur * 100).toFixed(0)}%`;
+        metrics.appendChild(faceBlurMetric);
     }
     
     // Faces
