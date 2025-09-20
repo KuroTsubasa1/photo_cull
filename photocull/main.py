@@ -127,9 +127,7 @@ def process_folder(
             thumb_path = thumbnails_dir / thumb_name
             
             if not thumb_path.exists():
-                if (i + 1) % 10 == 0 or is_raw_file(path):
-                    print(f"[thumb] Creating thumbnail for {Path(path).name}...")
-                    
+                # Remove verbose logging - only show for raw files that fail
                 success = create_thumbnail(path, str(thumb_path), (thumbnail_size, thumbnail_size))
                 if success:
                     m.thumbnail_path = str(thumb_path)
@@ -137,8 +135,10 @@ def process_folder(
                     # Fallback to original if thumbnail creation fails
                     m.thumbnail_path = path
                     if is_raw_file(path):
-                        print(f"[thumb] WARNING: Could not create thumbnail for raw file {Path(path).name}")
-                        print(f"[thumb] Raw file will not display in UI")
+                        # CR3 files need special handling - inform user once
+                        if Path(path).suffix.lower() == '.cr3' and i == 0:
+                            print(f"[thumb] Note: CR3 files require exiftool or ffmpeg for thumbnails")
+                            print(f"[thumb] Install with: brew install exiftool  (or: brew install ffmpeg)")
             else:
                 m.thumbnail_path = str(thumb_path)
         else:

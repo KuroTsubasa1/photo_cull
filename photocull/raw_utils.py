@@ -36,6 +36,13 @@ def load_raw_as_rgb(file_path: str) -> Tuple[Optional[np.ndarray], Optional[Imag
     """
     try:
         import rawpy
+        import sys
+        import os
+        
+        # Suppress stderr to avoid "File format not recognized" spam
+        old_stderr = os.dup(2)
+        os.close(2)
+        os.open(os.devnull, os.O_RDWR)
         
         # Load raw file
         try:
@@ -50,12 +57,21 @@ def load_raw_as_rgb(file_path: str) -> Tuple[Optional[np.ndarray], Optional[Imag
                     no_auto_bright=False,
                     output_bps=8
                 )
-        except rawpy._rawpy.LibRawFileUnsupportedError:
-            # File format not recognized by LibRaw
-            print(f"[raw] Format not supported by LibRaw: {Path(file_path).suffix}")
+        except (rawpy._rawpy.LibRawFileUnsupportedError, rawpy._rawpy.LibRawIOError):
+            # File format not recognized by LibRaw - silently skip
+            # Restore stderr
+            os.dup2(old_stderr, 2)
+            os.close(old_stderr)
             return None, None
-        except rawpy._rawpy.LibRawIOError:
-            print(f"[raw] IO error reading file: {file_path}")
+        except Exception as e:
+            # Restore stderr
+            os.dup2(old_stderr, 2)
+            os.close(old_stderr)
+            # Check if it's the generic "unsupported file format" error
+            if "unsupported" in str(e).lower() or "format" in str(e).lower():
+                return None, None
+            # Only print other unexpected errors
+            print(f"[raw] Unexpected error with {Path(file_path).name}: {e}")
             return None, None
         
         # Convert to PIL Image
@@ -63,6 +79,10 @@ def load_raw_as_rgb(file_path: str) -> Tuple[Optional[np.ndarray], Optional[Imag
         
         # Convert RGB to BGR for OpenCV
         img_cv = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
+        
+        # Restore stderr
+        os.dup2(old_stderr, 2)
+        os.close(old_stderr)
         
         return img_cv, img_pil
         
@@ -172,11 +192,12 @@ def create_thumbnail(file_path: str, output_path: str, size: Tuple[int, int] = (
                 if img.mode != 'RGB':
                     img = img.convert('RGB')
                 img.save(output_path, 'JPEG', quality=85, optimize=True)
-                print(f"[thumb] Successfully created thumbnail: {Path(output_path).name}")
+                # Only log success for debugging
+                # print(f"[thumb] Successfully created thumbnail: {Path(output_path).name}")
                 return True
             else:
-                # Raw thumbnail failed, might not be a supported raw format
-                print(f"[thumb] Failed to process raw file: {Path(file_path).name}")
+                # Raw thumbnail failed, CR3 not supported by LibRaw
+                # Silently fail - no spam
                 return False
         else:
             # Handle standard image
