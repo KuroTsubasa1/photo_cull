@@ -42,11 +42,13 @@ class ImageMetrics:
         for key, value in vars(self).items():
             if isinstance(value, np.ndarray):
                 d[key] = value.tolist()
-            elif isinstance(value, (np.float32, np.float64, np.float_, np.float16)):
+            elif isinstance(value, (np.floating, float)):
+                # np.floating covers all numpy float types
                 d[key] = float(value)
-            elif isinstance(value, (np.int32, np.int64, np.int_, np.int16, np.int8)):
+            elif isinstance(value, (np.integer, int)):
+                # np.integer covers all numpy int types
                 d[key] = int(value)
-            elif isinstance(value, (np.bool_, np.bool8)):
+            elif isinstance(value, (np.bool_, bool)) if hasattr(np, 'bool_') else isinstance(value, bool):
                 d[key] = bool(value)
             elif hasattr(value, 'item'):  # Catch any other numpy scalars
                 d[key] = value.item()
