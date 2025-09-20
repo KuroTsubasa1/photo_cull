@@ -36,20 +36,27 @@ def load_raw_as_rgb(file_path: str) -> Tuple[Optional[np.ndarray], Optional[Imag
     """
     try:
         import rawpy
-        import imageio
         
         # Load raw file
-        with rawpy.imread(file_path) as raw:
-            # Process raw to RGB
-            # use_camera_wb: Use camera white balance
-            # half_size: For faster processing (reduces resolution by half)
-            # no_auto_bright: Don't auto-adjust brightness
-            rgb = raw.postprocess(
-                use_camera_wb=True,
-                half_size=False,  # Full resolution
-                no_auto_bright=False,
-                output_bps=8
-            )
+        try:
+            with rawpy.imread(file_path) as raw:
+                # Process raw to RGB
+                # use_camera_wb: Use camera white balance
+                # half_size: For faster processing (reduces resolution by half)
+                # no_auto_bright: Don't auto-adjust brightness
+                rgb = raw.postprocess(
+                    use_camera_wb=True,
+                    half_size=False,  # Full resolution
+                    no_auto_bright=False,
+                    output_bps=8
+                )
+        except rawpy._rawpy.LibRawFileUnsupportedError:
+            # File format not recognized by LibRaw
+            print(f"[raw] Format not supported by LibRaw: {Path(file_path).suffix}")
+            return None, None
+        except rawpy._rawpy.LibRawIOError:
+            print(f"[raw] IO error reading file: {file_path}")
+            return None, None
         
         # Convert to PIL Image
         img_pil = Image.fromarray(rgb)
@@ -64,7 +71,9 @@ def load_raw_as_rgb(file_path: str) -> Tuple[Optional[np.ndarray], Optional[Imag
         print("[raw] Install with: pip install rawpy")
         return None, None
     except Exception as e:
-        print(f"[raw] Error loading raw file {file_path}: {e}")
+        # Don't print verbose errors for unsupported formats
+        if "unsupported" not in str(e).lower():
+            print(f"[raw] Error loading raw file {file_path}: {e}")
         return None, None
 
 
@@ -139,6 +148,11 @@ def create_thumbnail(file_path: str, output_path: str, size: Tuple[int, int] = (
     Returns:
         True if thumbnail was created successfully
     """
+    from pathlib import Path
+    
+    # Create output directory if it doesn't exist
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    
     try:
         if is_raw_file(file_path):
             # Handle raw file
@@ -149,21 +163,34 @@ def create_thumbnail(file_path: str, output_path: str, size: Tuple[int, int] = (
                     img = img.convert('RGB')
                 img.save(output_path, 'JPEG', quality=85, optimize=True)
                 return True
+            else:
+                # Raw thumbnail failed, might not be a supported raw format
+                return False
         else:
             # Handle standard image
-            img = Image.open(file_path)
-            # Convert to RGB for JPEG output
-            if img.mode != 'RGB':
-                img = img.convert('RGB')
-            img.thumbnail(size, Image.Resampling.LANCZOS)
-            img.save(output_path, 'JPEG', quality=85, optimize=True)
-            return True
+            try:
+                img = Image.open(file_path)
+                # Convert to RGB for JPEG output
+                if img.mode in ('RGBA', 'LA', 'P'):
+                    # Handle transparency by compositing on white background
+                    background = Image.new('RGB', img.size, (255, 255, 255))
+                    if img.mode == 'P':
+                        img = img.convert('RGBA')
+                    background.paste(img, mask=img.split()[-1] if 'A' in img.mode else None)
+                    img = background
+                elif img.mode != 'RGB':
+                    img = img.convert('RGB')
+                    
+                img.thumbnail(size, Image.Resampling.LANCZOS)
+                img.save(output_path, 'JPEG', quality=85, optimize=True)
+                return True
+            except Exception as e:
+                print(f"[thumb] Error with standard image {Path(file_path).name}: {e}")
+                return False
             
     except Exception as e:
-        print(f"[thumb] Error creating thumbnail for {file_path}: {e}")
+        print(f"[thumb] Unexpected error creating thumbnail for {Path(file_path).name}: {e}")
         return False
-    
-    return False
 
 
 def create_raw_thumbnail_pil(file_path: str, size: Tuple[int, int] = (800, 800)) -> Optional[Image.Image]:
@@ -179,7 +206,17 @@ def create_raw_thumbnail_pil(file_path: str, size: Tuple[int, int] = (800, 800))
     try:
         import rawpy
         
-        with rawpy.imread(file_path) as raw:
+        try:
+            raw = rawpy.imread(file_path)
+        except (rawpy._rawpy.LibRawFileUnsupportedError, rawpy._rawpy.LibRawIOError) as e:
+            # Silently fail for unsupported formats
+            return None
+        except Exception as e:
+            if "unsupported" not in str(e).lower():
+                print(f"[raw] Error opening raw file: {e}")
+            return None
+        
+        with raw:
             # Extract embedded thumbnail if available (faster)
             try:
                 thumb = raw.extract_thumb()
@@ -203,6 +240,11 @@ def create_raw_thumbnail_pil(file_path: str, size: Tuple[int, int] = (800, 800))
             img.thumbnail(size, Image.Resampling.LANCZOS)
             return img
             
+    except ImportError:
+        print("[raw] rawpy not installed, cannot create raw thumbnails")
+        return None
     except Exception as e:
-        print(f"[raw] Error creating thumbnail for {file_path}: {e}")
+        # Only print error if it's not about unsupported format
+        if "unsupported" not in str(e).lower() and "format" not in str(e).lower():
+            print(f"[raw] Error creating thumbnail for {file_path}: {e}")
         return None

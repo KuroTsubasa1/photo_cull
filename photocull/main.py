@@ -117,21 +117,33 @@ def process_folder(
         
         m = extractor.extract_all_features(path)
         
-        # Generate thumbnail if needed (for raw files or if requested)
-        if generate_thumbnails and (is_raw_file(path) or generate_thumbnails):
+        # Generate thumbnail if requested (always for raw files)
+        needs_thumbnail = generate_thumbnails or is_raw_file(path)
+        
+        if needs_thumbnail:
             # Create unique thumbnail name based on file path hash
             file_hash = hashlib.md5(path.encode()).hexdigest()[:8]
             thumb_name = f"{Path(path).stem}_{file_hash}.jpg"
             thumb_path = thumbnails_dir / thumb_name
             
             if not thumb_path.exists():
-                if create_thumbnail(path, str(thumb_path), (thumbnail_size, thumbnail_size)):
+                if (i + 1) % 10 == 0 or is_raw_file(path):
+                    print(f"[thumb] Creating thumbnail for {Path(path).name}...")
+                    
+                success = create_thumbnail(path, str(thumb_path), (thumbnail_size, thumbnail_size))
+                if success:
                     m.thumbnail_path = str(thumb_path)
                 else:
                     # Fallback to original if thumbnail creation fails
                     m.thumbnail_path = path
+                    if is_raw_file(path):
+                        print(f"[thumb] WARNING: Could not create thumbnail for raw file {Path(path).name}")
+                        print(f"[thumb] Raw file will not display in UI")
             else:
                 m.thumbnail_path = str(thumb_path)
+        else:
+            # No thumbnail requested, use original
+            m.thumbnail_path = path
         
         # Optional: extract CLIP embeddings
         if with_embeddings:
