@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PhotoCull Review</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header>
+        <h1>PhotoCull Review</h1>
+        <div class="actions">
+            <input type="file" id="fileInput" accept="application/json" />
+            <button id="loadBtn">Load report.json</button>
+            <button id="exportBtn" disabled>Export JSON</button>
+        </div>
+    </header>
+    
+    <main>
+        <aside id="sidebar">
+            <h2>Bursts</h2>
+            <ul id="burstList"></ul>
+        </aside>
+        
+        <section id="content">
+            <div id="summary"></div>
+            <div id="clusters"></div>
+        </section>
+    </main>
+    
+    <div id="imageModal" class="modal">
+        <span class="close">&times;</span>
+        <img class="modal-content" id="modalImg">
+        <div id="modalCaption"></div>
+    </div>
+    
+    <script src="script.js"></script>
+</body>
+</html>
