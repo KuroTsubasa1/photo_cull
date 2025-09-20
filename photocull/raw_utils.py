@@ -128,7 +128,45 @@ def extract_raw_metadata(file_path: str) -> dict:
     return metadata
 
 
-def create_raw_thumbnail(file_path: str, size: Tuple[int, int] = (256, 256)) -> Optional[Image.Image]:
+def create_thumbnail(file_path: str, output_path: str, size: Tuple[int, int] = (800, 800)) -> bool:
+    """Create a JPEG thumbnail from any image file (raw or standard)
+    
+    Args:
+        file_path: Path to source image
+        output_path: Path where thumbnail JPEG should be saved
+        size: Maximum thumbnail size (width, height)
+    
+    Returns:
+        True if thumbnail was created successfully
+    """
+    try:
+        if is_raw_file(file_path):
+            # Handle raw file
+            img = create_raw_thumbnail_pil(file_path, size)
+            if img:
+                # Convert to RGB if needed (some raw files might be RGBA)
+                if img.mode != 'RGB':
+                    img = img.convert('RGB')
+                img.save(output_path, 'JPEG', quality=85, optimize=True)
+                return True
+        else:
+            # Handle standard image
+            img = Image.open(file_path)
+            # Convert to RGB for JPEG output
+            if img.mode != 'RGB':
+                img = img.convert('RGB')
+            img.thumbnail(size, Image.Resampling.LANCZOS)
+            img.save(output_path, 'JPEG', quality=85, optimize=True)
+            return True
+            
+    except Exception as e:
+        print(f"[thumb] Error creating thumbnail for {file_path}: {e}")
+        return False
+    
+    return False
+
+
+def create_raw_thumbnail_pil(file_path: str, size: Tuple[int, int] = (800, 800)) -> Optional[Image.Image]:
     """Create a thumbnail from a raw file
     
     Args:

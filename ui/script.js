@@ -197,13 +197,25 @@ function createImageCard(imageData, score, isWinner, clusterId) {
     imgContainer.className = 'image-container';
     imgContainer.addEventListener('click', () => showModal(imageData));
     
-    // Try to load image thumbnail
+    // Try to load image thumbnail (prefer thumbnail_path if available)
     const img = document.createElement('img');
-    img.src = getImageUrl(imageData.path);
+    // Use thumbnail if available, otherwise fallback to original
+    const imageSrc = imageData.thumbnail_path || imageData.path;
+    img.src = getImageUrl(imageSrc);
     img.alt = getFileName(imageData.path);
+    img.dataset.originalPath = imageData.path; // Store original path for reference
     img.onerror = () => {
-        img.style.display = 'none';
-        imgContainer.innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">Image not accessible</div>';
+        // If thumbnail fails, try original path as fallback
+        if (imageSrc !== imageData.path && imageData.path) {
+            img.src = getImageUrl(imageData.path);
+            img.onerror = () => {
+                img.style.display = 'none';
+                imgContainer.innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">Image not accessible</div>';
+            };
+        } else {
+            img.style.display = 'none';
+            imgContainer.innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">Image not accessible</div>';
+        }
     };
     imgContainer.appendChild(img);
     
@@ -316,7 +328,15 @@ function promoteImage(imagePath, clusterId) {
 // Show image modal
 function showModal(imageData) {
     modal.style.display = 'block';
-    modalImg.src = getImageUrl(imageData.path);
+    // Use thumbnail for modal too (it's high enough resolution)
+    const imageSrc = imageData.thumbnail_path || imageData.path;
+    modalImg.src = getImageUrl(imageSrc);
+    modalImg.onerror = () => {
+        // Fallback to original if thumbnail fails
+        if (imageSrc !== imageData.path) {
+            modalImg.src = getImageUrl(imageData.path);
+        }
+    };
     modalCaption.innerHTML = `
         <strong>${getFileName(imageData.path)}</strong><br>
         ${imageData.width}×${imageData.height} • 
@@ -336,6 +356,10 @@ function getImageUrl(path) {
         return path;
     } else if (path.startsWith('/')) {
         return 'file://' + path;
+    } else if (path.includes('thumbnails/')) {
+        // Thumbnail path might be relative to output directory
+        // Try to construct proper path
+        return path;
     } else {
         // Relative path - assume it's relative to the report
         return path;

@@ -5,6 +5,7 @@ A fast, local-first photo culling tool that uses perceptual hashing, classical c
 ## Features
 
 - **Raw file support**: Handles Canon CR3, CR2, Nikon NEF, Sony ARW, and other major raw formats
+- **Automatic thumbnail generation**: Creates JPEG previews for UI display (essential for raw files)
 - **Burst detection**: Groups photos by EXIF timestamp (or file mtime) with configurable gap threshold
 - **Near-duplicate detection**: Uses pHash and dHash with Hamming distance
 - **Quality metrics**:
@@ -31,6 +32,12 @@ python -m photocull.main --input /path/to/images --out /path/to/output --with-em
 
 # Custom burst detection gap (default: 700ms)
 python -m photocull.main --input /path/to/images --out /path/to/output --burst-gap-ms 500
+
+# Custom thumbnail size (default: 800px)
+python -m photocull.main --input /path/to/images --out /path/to/output --thumbnail-size 1200
+
+# Skip thumbnail generation (not recommended for raw files)
+python -m photocull.main --input /path/to/images --out /path/to/output --no-thumbnails
 ```
 
 ## Output Structure
@@ -39,6 +46,7 @@ python -m photocull.main --input /path/to/images --out /path/to/output --burst-g
 output/
 ├── winners/      # Best photos from each cluster
 ├── similar/      # Near-duplicates and lower-scoring variants
+├── thumbnails/   # JPEG previews for UI display (auto-generated)
 └── report.json   # Detailed metrics and clustering data
 ```
 

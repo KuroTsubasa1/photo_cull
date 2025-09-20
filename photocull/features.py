@@ -33,6 +33,8 @@ class ImageMetrics:
     face_blur_scores: List[float] = field(default_factory=list)
     has_motion_blur: bool = False
     tenengrad_score: float = 0.0
+    # Thumbnail path for UI display
+    thumbnail_path: str = ""
     
     def to_dict(self):
         d = vars(self).copy()

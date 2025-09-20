@@ -66,7 +66,9 @@ def process_folder(
     with_embeddings: bool = False,
     hash_dist: int = 8,
     out_dir: str = "out",
-    burst_gap_ms: int = 700
+    burst_gap_ms: int = 700,
+    generate_thumbnails: bool = True,
+    thumbnail_size: int = 800
 ):
     """Process a folder of images and select the best ones
     
@@ -90,12 +92,19 @@ def process_folder(
     out_path = Path(out_dir)
     winners_dir = out_path / "winners"
     similar_dir = out_path / "similar"
+    thumbnails_dir = out_path / "thumbnails"
     
-    for d in [out_path, winners_dir, similar_dir]:
+    for d in [out_path, winners_dir, similar_dir, thumbnails_dir]:
         d.mkdir(parents=True, exist_ok=True)
     
     # Extract features
     print("[process] Extracting features...")
+    if generate_thumbnails:
+        print(f"[process] Generating thumbnails (size: {thumbnail_size}px)...")
+    
+    from .raw_utils import create_thumbnail, is_raw_file
+    import hashlib
+    
     extractor = FeatureExtractor()
     metrics = []
     
@@ -107,6 +116,22 @@ def process_folder(
             print(f"[process] Processing {i+1}/{len(paths)}...")
         
         m = extractor.extract_all_features(path)
+        
+        # Generate thumbnail if needed (for raw files or if requested)
+        if generate_thumbnails and (is_raw_file(path) or generate_thumbnails):
+            # Create unique thumbnail name based on file path hash
+            file_hash = hashlib.md5(path.encode()).hexdigest()[:8]
+            thumb_name = f"{Path(path).stem}_{file_hash}.jpg"
+            thumb_path = thumbnails_dir / thumb_name
+            
+            if not thumb_path.exists():
+                if create_thumbnail(path, str(thumb_path), (thumbnail_size, thumbnail_size)):
+                    m.thumbnail_path = str(thumb_path)
+                else:
+                    # Fallback to original if thumbnail creation fails
+                    m.thumbnail_path = path
+            else:
+                m.thumbnail_path = str(thumb_path)
         
         # Optional: extract CLIP embeddings
         if with_embeddings:
@@ -197,7 +222,10 @@ def process_folder(
         "params": {
             "hash_dist_thresh": hash_dist,
             "with_embeddings": with_embeddings,
-            "burst_gap_ms": burst_gap_ms
+            "burst_gap_ms": burst_gap_ms,
+            "generate_thumbnails": generate_thumbnails,
+            "thumbnail_size": thumbnail_size,
+            "thumbnails_dir": str(thumbnails_dir)
         },
         "images": [m.to_dict() for m in metrics],
         "hash_clusters": all_cluster_reports,
@@ -225,6 +253,10 @@ def main():
                        help="Hamming distance threshold for near-duplicates (default: 8)")
     parser.add_argument("--burst-gap-ms", type=int, default=700,
                        help="Maximum gap in milliseconds for burst grouping (default: 700)")
+    parser.add_argument("--no-thumbnails", action="store_true",
+                       help="Skip thumbnail generation (UI won't work for raw files)")
+    parser.add_argument("--thumbnail-size", type=int, default=800,
+                       help="Maximum thumbnail size in pixels (default: 800)")
     
     args = parser.parse_args()
     
@@ -233,7 +265,9 @@ def main():
         with_embeddings=args.with_embeddings,
         hash_dist=args.hash_dist,
         out_dir=args.out,
-        burst_gap_ms=args.burst_gap_ms
+        burst_gap_ms=args.burst_gap_ms,
+        generate_thumbnails=not args.no_thumbnails,
+        thumbnail_size=args.thumbnail_size
     )
 
 
