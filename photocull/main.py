@@ -130,8 +130,8 @@ def process_folder(
                 # Remove verbose logging - only show for raw files that fail
                 success = create_thumbnail(path, str(thumb_path), (thumbnail_size, thumbnail_size))
                 if success:
-                    # Store relative path for the UI
-                    m.thumbnail_path = str(thumb_path.relative_to(out_path))
+                    # Store relative path for the UI (just thumbnails/filename)
+                    m.thumbnail_path = f"thumbnails/{thumb_name}"
                 else:
                     # Fallback to original if thumbnail creation fails
                     m.thumbnail_path = path
@@ -141,8 +141,8 @@ def process_folder(
                             print(f"[thumb] Note: CR3 files require exiftool or ffmpeg for thumbnails")
                             print(f"[thumb] Install with: brew install exiftool  (or: brew install ffmpeg)")
             else:
-                # Store relative path for the UI
-                m.thumbnail_path = str(thumb_path.relative_to(out_path))
+                # Store relative path for the UI (just thumbnails/filename)
+                m.thumbnail_path = f"thumbnails/{thumb_name}"
         else:
             # No thumbnail requested, use original
             m.thumbnail_path = path

@@ -19,9 +19,19 @@ class PhotoCullHandler(http.server.SimpleHTTPRequestHandler):
         path = path.split('?',1)[0]
         path = path.split('#',1)[0]
         
-        # For thumbnails, serve from output directory
-        if path.startswith('/thumbnails/'):
-            file_path = self.output_dir / path[1:]  # Remove leading /
+        # Handle various thumbnail path formats
+        if '/thumbnails/' in path:
+            # Remove any prefix like /out/ and just get thumbnails/filename
+            if path.startswith('/out/thumbnails/'):
+                # Path like /out/thumbnails/file.jpg
+                thumbnail_path = path.replace('/out/thumbnails/', 'thumbnails/')
+            elif path.startswith('/thumbnails/'):
+                # Path like /thumbnails/file.jpg
+                thumbnail_path = path[1:]  # Remove leading /
+            else:
+                thumbnail_path = path
+            
+            file_path = self.output_dir / thumbnail_path
             return str(file_path)
         
         # For report.json, serve from output directory

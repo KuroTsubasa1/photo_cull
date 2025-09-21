@@ -380,12 +380,13 @@ function getImageUrl(path) {
     // Handle different path formats
     if (path.startsWith('http://') || path.startsWith('https://')) {
         return path;
-    } else if (path.startsWith('thumbnails/')) {
-        // Relative thumbnail path - will be served by our server
-        return '/' + path;
-    } else if (path.startsWith('/thumbnails/')) {
-        // Already has leading slash
-        return path;
+    } else if (path.includes('thumbnails/')) {
+        // Thumbnail path - prepend slash for server
+        if (path.startsWith('/')) {
+            return path;
+        } else {
+            return '/' + path;
+        }
     } else if (path.startsWith('file://')) {
         // File protocol - only works if browser allows it
         return path;
@@ -394,6 +395,6 @@ function getImageUrl(path) {
         return 'file://' + path;
     } else {
         // Assume relative path
-        return path;
+        return '/' + path;
     }
 }
