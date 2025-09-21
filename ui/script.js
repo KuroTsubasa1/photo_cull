@@ -15,11 +15,61 @@ const clustersContainer = document.getElementById('clusters');
 const modal = document.getElementById('imageModal');
 const modalImg = document.getElementById('modalImg');
 const modalCaption = document.getElementById('modalCaption');
+const splitter = document.getElementById('splitter');
+const previewPanel = document.getElementById('previewPanel');
 
 // Event listeners
 loadBtn.addEventListener('click', () => fileInput.click());
 fileInput.addEventListener('change', handleFileLoad);
 exportBtn.addEventListener('click', exportReport);
+
+// Splitter resize functionality
+let isResizing = false;
+let startX = 0;
+let startWidth = 400;
+
+splitter.addEventListener('mousedown', (e) => {
+    isResizing = true;
+    startX = e.clientX;
+    startWidth = previewPanel.offsetWidth;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    e.preventDefault();
+});
+
+document.addEventListener('mousemove', (e) => {
+    if (!isResizing) return;
+    
+    const diff = startX - e.clientX;
+    const newWidth = startWidth + diff;
+    
+    // Respect min and max constraints
+    const minWidth = 250;
+    const maxWidth = window.innerWidth * 0.6;
+    
+    if (newWidth >= minWidth && newWidth <= maxWidth) {
+        previewPanel.style.width = newWidth + 'px';
+    }
+});
+
+document.addEventListener('mouseup', () => {
+    if (isResizing) {
+        isResizing = false;
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        
+        // Save preference to localStorage
+        localStorage.setItem('previewPanelWidth', previewPanel.offsetWidth);
+    }
+});
+
+// Restore saved width on load
+window.addEventListener('DOMContentLoaded', () => {
+    const savedWidth = localStorage.getItem('previewPanelWidth');
+    if (savedWidth) {
+        previewPanel.style.width = savedWidth + 'px';
+    }
+});
 
 // Auto-load report.json if served by our server
 window.addEventListener('DOMContentLoaded', async () => {
@@ -552,6 +602,14 @@ document.addEventListener('keydown', (e) => {
             e.preventDefault();
             promoteCurrentImage();
             break;
+        case '[':
+            e.preventDefault();
+            adjustPreviewWidth(-50);
+            break;
+        case ']':
+            e.preventDefault();
+            adjustPreviewWidth(50);
+            break;
     }
 });
 
@@ -625,6 +683,19 @@ function promoteCurrentImage() {
         promoteImage(element.imageData.path, element.clusterId);
         // Re-select the same image after re-render
         setTimeout(() => selectImage(currentCluster, currentImage), 100);
+    }
+}
+
+// Adjust preview panel width
+function adjustPreviewWidth(delta) {
+    const currentWidth = previewPanel.offsetWidth;
+    const newWidth = currentWidth + delta;
+    const minWidth = 250;
+    const maxWidth = window.innerWidth * 0.6;
+    
+    if (newWidth >= minWidth && newWidth <= maxWidth) {
+        previewPanel.style.width = newWidth + 'px';
+        localStorage.setItem('previewPanelWidth', newWidth);
     }
 }
 
