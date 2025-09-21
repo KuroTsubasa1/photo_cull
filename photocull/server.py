@@ -119,6 +119,9 @@ class ProcessingQueue:
         # Stage 4: Grouping
         self.processing_stage = "Grouping into bursts..."
         bursts = group_into_bursts(paths, gap_ms=job.get('burst_gap_ms', 700))
+        print(f"[DEBUG] Burst grouping result: {len(bursts)} bursts")
+        print(f"[DEBUG] First few bursts: {bursts[:3] if len(bursts) > 0 else 'none'}")
+        print(f"[DEBUG] Burst sizes: {[len(b) for b in bursts[:5]]}")
         self.processing_progress['burst_count'] = len(bursts)
         
         # Stage 5: Clustering

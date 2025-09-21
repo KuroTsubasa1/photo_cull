@@ -182,6 +182,44 @@ def read_timestamp(img_path: str) -> float:
     except Exception:
         pass
     
+    # Try exiftool for RAW files that exifread can't handle (like CR3)
+    try:
+        import subprocess
+        from pathlib import Path
+        
+        file_ext = Path(img_path).suffix.lower()
+        raw_extensions = {'.cr3', '.cr2', '.nef', '.nrw', '.arw', '.raf', '.orf', '.rw2', '.dng'}
+        
+        if file_ext in raw_extensions:
+            # Use exiftool to extract timestamp
+            result = subprocess.run(
+                ['exiftool', '-DateTimeOriginal', '-d', '%Y:%m:%d %H:%M:%S', '-S', '-s', img_path],
+                capture_output=True, text=True, timeout=10
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                datetime_str = result.stdout.strip()
+                if datetime_str:
+                    dt = dtparser.parse(datetime_str.replace(':', '-', 2))
+                    return dt.timestamp()
+    except Exception:
+        pass
+    
+    # Try file creation time (more accurate than modification time for uploads)
+    try:
+        import platform
+        path_obj = Path(img_path)
+        
+        if platform.system() == 'Darwin':  # macOS
+            # On macOS, use stat().st_birthtime for creation time
+            stat_result = path_obj.stat()
+            if hasattr(stat_result, 'st_birthtime'):
+                return stat_result.st_birthtime
+        elif platform.system() == 'Windows':  # Windows
+            # On Windows, use stat().st_ctime for creation time
+            return path_obj.stat().st_ctime
+    except Exception:
+        pass
+    
     # Fallback to file modification time
     return os.path.getmtime(img_path)
 

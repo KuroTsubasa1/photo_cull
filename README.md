@@ -6,7 +6,7 @@ A fast, local-first photo culling tool that uses perceptual hashing, classical c
 
 - **Raw file support**: Handles Canon CR3, CR2, Nikon NEF, Sony ARW, and other major raw formats
 - **Automatic thumbnail generation**: Creates JPEG previews for UI display (essential for raw files)
-- **Burst detection**: Groups photos by EXIF timestamp (or file mtime) with configurable gap threshold
+- **Burst detection**: Groups photos by EXIF timestamp with configurable gap threshold (supports CR3/RAW via ExifTool)
 - **Near-duplicate detection**: Uses pHash and dHash with Hamming distance
 - **Quality metrics**:
   - Sharpness (variance of Laplacian & Tenengrad)
@@ -16,6 +16,14 @@ A fast, local-first photo culling tool that uses perceptual hashing, classical c
   - Face counting
 - **Optional CLIP embeddings**: Semantic similarity clustering via FAISS
 - **Static review UI**: Browser-based interface to review and adjust selections
+
+## Prerequisites
+
+- **Python 3.8+** with pip
+- **ExifTool** (required for RAW file timestamp extraction)
+  - macOS: `brew install exiftool`
+  - Ubuntu/Debian: `sudo apt install exiftool` or `sudo apt install libimage-exiftool-perl`
+  - Windows: Download from [exiftool.org](https://exiftool.org/)
 
 ## Quickstart
 
