@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PhotoCull - Home</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .reports-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1.5rem;
+            padding: 2rem;
+        }
+        
+        .report-card {
+            background: #1a1a1a;
+            border-radius: 1rem;
+            padding: 1.5rem;
+            border: 2px solid transparent;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .report-card:hover {
+            border-color: #3b82f6;
+            transform: translateY(-2px);
+        }
+        
+        .report-preview {
+            width: 100%;
+            height: 200px;
+            border-radius: 0.5rem;
+            object-fit: cover;
+            margin-bottom: 1rem;
+            background: #333;
+        }
+        
+        .report-info {
+            color: #f0f0f0;
+        }
+        
+        .report-title {
+            font-size: 1.2rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+        
+        .report-stats {
+            color: #999;
+            font-size: 0.9rem;
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+        }
+        
+        .report-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+        
+        .btn-small {
+            padding: 0.5rem 1rem;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 0.25rem;
+            cursor: pointer;
+            font-size: 0.8rem;
+            flex: 1;
+        }
+        
+        .btn-small:hover {
+            background: #2563eb;
+        }
+        
+        .btn-export {
+            background: #10b981;
+        }
+        
+        .btn-export:hover {
+            background: #059669;
+        }
+        
+        .no-preview {
+            width: 100%;
+            height: 200px;
+            border-radius: 0.5rem;
+            background: #333;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #666;
+            margin-bottom: 1rem;
+        }
+        
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .refresh-btn {
+            background: #6b7280;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+        }
+        
+        .refresh-btn:hover {
+            background: #4b5563;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>PhotoCull</h1>
+        <div class="header-actions">
+            <button id="refreshBtn" class="refresh-btn">🔄 Refresh</button>
+            <a href="/process.html" style="color: white; text-decoration: none; padding: 0.5rem 1rem; background: #10b981; border-radius: 0.5rem;">Process New Photos</a>
+        </div>
+    </header>
+    
+    <main>
+        <div id="loading" style="text-align: center; color: #666; padding: 2rem;">
+            Loading reports...
+        </div>
+        <div id="reportsContainer" class="reports-grid" style="display: none;"></div>
+        <div id="noReports" style="display: none; text-align: center; color: #666; padding: 2rem;">
+            <p>No processing reports found.</p>
+            <a href="/process.html" style="color: #3b82f6; text-decoration: none;">Process some photos to get started!</a>
+        </div>
+    </main>
+
+    <script>
+        let reports = [];
+        
+        async function loadReports() {
+            try {
+                const response = await fetch('/api/reports');
+                reports = await response.json();
+                
+                document.getElementById('loading').style.display = 'none';
+                
+                if (reports.length === 0) {
+                    document.getElementById('noReports').style.display = 'block';
+                    return;
+                }
+                
+                document.getElementById('reportsContainer').style.display = 'grid';
+                renderReports();
+                
+            } catch (error) {
+                console.error('Failed to load reports:', error);
+                document.getElementById('loading').textContent = 'Failed to load reports';
+            }
+        }
+        
+        function renderReports() {
+            const container = document.getElementById('reportsContainer');
+            container.innerHTML = '';
+            
+            reports.forEach(report => {
+                const card = createReportCard(report);
+                container.appendChild(card);
+            });
+        }
+        
+        function createReportCard(report) {
+            const card = document.createElement('div');
+            card.className = 'report-card';
+            
+            const previewImg = document.createElement('img');
+            previewImg.className = 'report-preview';
+            previewImg.onerror = () => {
+                // Replace with placeholder if image fails to load
+                const placeholder = document.createElement('div');
+                placeholder.className = 'no-preview';
+                placeholder.textContent = 'No preview available';
+                previewImg.replaceWith(placeholder);
+            };
+            
+            card.innerHTML = `
+                <div class="report-info">
+                    <div class="report-title">${report.name}</div>
+                    <div class="report-stats">
+                        <span>${report.images} images</span>
+                        <span>${report.clusters} winners</span>
+                    </div>
+                    <div class="report-actions">
+                        <button class="btn-small" onclick="viewReport('${report.name}')">View Report</button>
+                        <button class="btn-small btn-export" onclick="exportWinners('${report.name}')">Export Winners</button>
+                    </div>
+                </div>
+            `;
+            
+            // Insert preview image at the beginning
+            card.insertBefore(previewImg, card.firstChild);
+            
+            // Try to load preview image
+            loadPreviewImage(report.name).then(src => {
+                if (src) {
+                    previewImg.src = src;
+                }
+            }).catch(() => {
+                // Will trigger onerror handler
+                previewImg.src = 'invalid';
+            });
+            
+            return card;
+        }
+        
+        async function loadPreviewImage(reportName) {
+            try {
+                // Try to get the first winner image as preview
+                const reportResponse = await fetch(`/output/${reportName}/report.json`);
+                if (!reportResponse.ok) return null;
+                
+                const reportData = await reportResponse.json();
+                const clusters = reportData.hash_clusters || [];
+                if (clusters.length === 0) return null;
+                
+                // Get first winner image data
+                const firstWinner = clusters[0].winner;
+                const imageData = reportData.images.find(img => img.path === firstWinner);
+                
+                if (imageData && imageData.thumbnail_path) {
+                    // Use thumbnail if available
+                    return `/output/${reportName}/${imageData.thumbnail_path}`;
+                }
+                
+                // Fallback to winners directory
+                const imageName = firstWinner.split(/[\\/]/).pop();
+                return `/output/${reportName}/winners/${imageName}`;
+                
+            } catch (error) {
+                return null;
+            }
+        }
+        
+        function viewReport(reportName) {
+            window.location.href = `/index.html?report=${reportName}`;
+        }
+        
+        async function exportWinners(reportName) {
+            try {
+                const response = await fetch('/api/export-winners', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        report_name: reportName
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    alert(`✓ Exported ${result.exported_count} winner images to ${result.export_dir}`);
+                } else {
+                    alert(`❌ Export failed: ${result.error}`);
+                }
+            } catch (error) {
+                alert(`❌ Export failed: ${error.message}`);
+            }
+        }
+        
+        // Event listeners
+        document.getElementById('refreshBtn').addEventListener('click', () => {
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('reportsContainer').style.display = 'none';
+            document.getElementById('noReports').style.display = 'none';
+            loadReports();
+        });
+        
+        // Load reports on page load
+        loadReports();
+    </script>
+</body>
+</html>

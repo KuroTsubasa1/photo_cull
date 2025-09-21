@@ -256,7 +256,7 @@ class PhotoCullHandler(http.server.SimpleHTTPRequestHandler):
         
         # Default to UI directory
         if path == '/':
-            path = '/index.html'
+            path = '/home.html'
         ui_path = Path('/app/ui') / path[1:]
         return str(ui_path)
     
@@ -344,6 +344,67 @@ class PhotoCullHandler(http.server.SimpleHTTPRequestHandler):
             job_id = processing_queue.add_job(job)
             self.send_json_response({'job_id': job_id, 'status': 'queued'})
             
+        elif self.path == '/api/export-winners':
+            # Export winner images
+            content_length = int(self.headers['Content-Length'])
+            post_data = self.rfile.read(content_length)
+            params = json.loads(post_data)
+            
+            report_name = params.get('report_name')
+            if not report_name:
+                self.send_json_response({'error': 'Report name required'}, 400)
+                return
+            
+            # Load report
+            report_path = Path(f'/app/output/{report_name}/report.json')
+            if not report_path.exists():
+                self.send_json_response({'error': 'Report not found'}, 404)
+                return
+            
+            try:
+                with open(report_path) as f:
+                    report = json.load(f)
+                
+                # Create export directory
+                timestamp = time.strftime('%Y%m%d_%H%M%S')
+                export_dir = Path(f'/app/output/{report_name}/winners_export_{timestamp}')
+                export_dir.mkdir(parents=True, exist_ok=True)
+                
+                # Copy winner images
+                exported_files = []
+                for cluster in report.get('hash_clusters', []):
+                    winner_path = cluster['winner']
+                    winner_file = Path(winner_path)
+                    
+                    if winner_file.exists():
+                        # Copy with cluster prefix
+                        dst_name = f"cluster_{cluster['cluster_id']:03d}_{winner_file.name}"
+                        dst_path = export_dir / dst_name
+                        shutil.copy2(winner_path, dst_path)
+                        exported_files.append({
+                            'original': winner_path,
+                            'exported': str(dst_path),
+                            'cluster_id': cluster['cluster_id']
+                        })
+                
+                # Create export summary
+                summary = {
+                    'export_dir': str(export_dir),
+                    'exported_count': len(exported_files),
+                    'files': exported_files,
+                    'timestamp': timestamp
+                }
+                
+                # Save export log
+                summary_path = export_dir / 'export_summary.json'
+                with open(summary_path, 'w') as f:
+                    json.dump(summary, f, indent=2)
+                
+                self.send_json_response(summary)
+                
+            except Exception as e:
+                self.send_json_response({'error': f'Export failed: {str(e)}'}, 500)
+        
         elif self.path == '/api/upload':
             # Handle file upload
             content_type = self.headers.get('Content-Type', '')

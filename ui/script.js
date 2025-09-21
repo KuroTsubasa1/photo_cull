@@ -117,7 +117,33 @@ window.addEventListener('DOMContentLoaded', async () => {
             }
         }
     } catch (err) {
-        console.log('Could not auto-load report - use Load button to select file');
+        console.log('Could not auto-load report - trying to find most recent report');
+        
+        // If no specific report was requested and default failed, try to load most recent
+        if (!reportName) {
+            try {
+                const reportsResponse = await fetch('/api/reports');
+                if (reportsResponse.ok) {
+                    const reports = await reportsResponse.json();
+                    if (reports.length > 0) {
+                        // Sort by name (assuming timestamp format) and get most recent
+                        reports.sort((a, b) => b.name.localeCompare(a.name));
+                        const mostRecent = reports[0].name;
+                        console.log(`Redirecting to most recent report: ${mostRecent}`);
+                        window.location.href = `/index.html?report=${mostRecent}`;
+                        return;
+                    }
+                }
+            } catch (reportsErr) {
+                console.log('Could not load reports list');
+            }
+            
+            // If no reports available, redirect to homepage
+            console.log('No reports available - redirecting to homepage');
+            window.location.href = '/home.html';
+        } else {
+            console.log('Could not load specific report - use Load button to select file');
+        }
     }
 });
 
@@ -192,6 +218,10 @@ function exportReport() {
 function exportWinners() {
     if (!reportData || !reportData.hash_clusters) return;
     
+    // Get current report name from URL or default
+    const urlParams = new URLSearchParams(window.location.search);
+    const reportName = urlParams.get('report') || 'latest';
+    
     // Collect all winner paths
     const winners = reportData.hash_clusters.map(cluster => {
         const winnerPath = cluster.winner;
@@ -223,8 +253,13 @@ function exportWinners() {
             <span class="close" style="color: #999; cursor: pointer;">&times;</span>
             <h2 style="color: #f0f0f0; margin-bottom: 1.5rem;">Export Winners</h2>
             <p style="color: #ccc; margin-bottom: 1.5rem;">
-                Found ${winners.length} winning photos. Choose export format:
+                Found ${winners.length} winning photos. Choose export option:
             </p>
+            <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem;">
+                <button id="exportImagesBtn" style="flex: 1; padding: 0.75rem; background: #dc2626; color: white; border: none; border-radius: 0.5rem; cursor: pointer; font-weight: bold;">
+                    📷 Export Winner Images
+                </button>
+            </div>
             <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
                 <button id="exportCsvBtn" style="flex: 1; padding: 0.75rem; background: #2563eb; color: white; border: none; border-radius: 0.5rem; cursor: pointer;">
                     Export as CSV
@@ -250,6 +285,44 @@ function exportWinners() {
     exportModal.addEventListener('click', (e) => {
         if (e.target === exportModal) {
             document.body.removeChild(exportModal);
+        }
+    });
+    
+    document.getElementById('exportImagesBtn').addEventListener('click', async () => {
+        const statusDiv = document.getElementById('exportStatus');
+        const btn = document.getElementById('exportImagesBtn');
+        
+        try {
+            statusDiv.textContent = 'Exporting winner images...';
+            statusDiv.style.display = 'block';
+            statusDiv.style.color = '#fbbf24'; // Yellow for processing
+            btn.disabled = true;
+            
+            const response = await fetch('/api/export-winners', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    report_name: reportName
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+                statusDiv.textContent = `✓ Exported ${result.exported_count} winner images to ${result.export_dir}`;
+                statusDiv.style.color = '#10b981'; // Green for success
+            } else {
+                statusDiv.textContent = `❌ Export failed: ${result.error}`;
+                statusDiv.style.color = '#dc2626'; // Red for error
+            }
+        } catch (error) {
+            statusDiv.textContent = `❌ Export failed: ${error.message}`;
+            statusDiv.style.color = '#dc2626';
+            statusDiv.style.display = 'block';
+        } finally {
+            btn.disabled = false;
         }
     });
     
