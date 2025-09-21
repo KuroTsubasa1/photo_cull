@@ -111,6 +111,10 @@ class ProcessingQueue:
             
             metrics.append(m)
         
+        print(f"DEBUG: Extracted metrics for {len(metrics)} images")
+        if len(metrics) > 0:
+            print(f"DEBUG: First metric - phash: {metrics[0].phash}, dhash: {metrics[0].dhash}, score: {metrics[0].score}")
+        
         # Stage 3: Scoring
         self.processing_stage = "Computing quality scores..."
         score_images(metrics)
@@ -118,6 +122,8 @@ class ProcessingQueue:
         # Stage 4: Grouping
         self.processing_stage = "Grouping into bursts..."
         bursts = group_into_bursts(paths, gap_ms=job.get('burst_gap_ms', 700))
+        print(f"DEBUG: Generated {len(bursts)} bursts")
+        print(f"DEBUG: Burst sizes: {[len(b) for b in bursts]}")
         self.processing_progress['burst_count'] = len(bursts)
         
         # Stage 5: Clustering
@@ -130,7 +136,13 @@ class ProcessingQueue:
             {"idx": i, "phash": m.phash, "dhash": m.dhash}
             for i, m in enumerate(metrics)
         ]
+        print(f"DEBUG: Found {len(all_items)} items for clustering")
+        print(f"DEBUG: First few items: {all_items[:3] if len(all_items) > 0 else 'None'}")
+        
         global_hash_clusters = cluster_by_hash(all_items, dist_thresh=job.get('hash_dist', 8))
+        
+        print(f"DEBUG: Generated {len(global_hash_clusters)} clusters")
+        print(f"DEBUG: Cluster sizes: {[len(c) for c in global_hash_clusters]}")
         
         self.processing_progress['cluster_count'] = len(global_hash_clusters)
         
