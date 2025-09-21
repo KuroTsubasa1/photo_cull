@@ -679,10 +679,8 @@
                             if (lastJob.status === 'completed' && lastJob.name) {
                                 // Auto-redirect to view the report after a short delay
                                 setTimeout(() => {
-                                    if (confirm('Processing complete! View the results now?')) {
-                                        window.location.href = `/?report=${encodeURIComponent(lastJob.name)}`;
-                                    }
-                                }, 1000);
+                                    window.location.href = `/?report=${encodeURIComponent(lastJob.name)}`;
+                                }, 2000);
                             }
                         }
                     }

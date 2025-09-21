@@ -6,11 +6,32 @@
     <title>PhotoCull - Home</title>
     <link rel="stylesheet" href="styles.css">
     <style>
+        /* Override main styles for homepage to allow scrolling */
+        body {
+            height: auto;
+            min-height: 100vh;
+        }
+        
+        main {
+            overflow: visible;
+            display: block;
+            flex: unset;
+        }
+        
         .reports-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
             gap: 1.5rem;
             padding: 2rem;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        @media (max-width: 768px) {
+            .reports-grid {
+                grid-template-columns: 1fr;
+                padding: 1rem;
+            }
         }
         
         .report-card {
