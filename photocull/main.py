@@ -172,29 +172,57 @@ def process_folder(
     bursts = group_into_bursts(paths, gap_ms=burst_gap_ms)
     print(f"[process] Found {len(bursts)} bursts")
     
-    # Process each burst
+    # First, cluster ALL images by hash similarity (across bursts)
+    print("[process] Finding similar images across all bursts...")
+    all_items = [
+        {"idx": i, "phash": m.phash, "dhash": m.dhash}
+        for i, m in enumerate(metrics)
+    ]
+    global_hash_clusters = cluster_by_hash(all_items, dist_thresh=hash_dist)
+    
+    # Now process each global cluster, considering burst boundaries
     all_cluster_reports = []
     cluster_id_counter = 0
+    processed_indices = set()
     
-    for burst_id, burst_indices in enumerate(bursts):
-        # Get metrics for this burst
-        burst_items = [
-            {"idx": i, "phash": metrics[i].phash, "dhash": metrics[i].dhash}
-            for i in burst_indices
-        ]
+    for global_cluster in global_hash_clusters:
+        if all(idx in processed_indices for idx in global_cluster):
+            continue
+            
+        # Group this cluster by bursts
+        burst_groups = {}
+        for idx in global_cluster:
+            if idx in processed_indices:
+                continue
+            # Find which burst this image belongs to
+            for burst_id, burst_indices in enumerate(bursts):
+                if idx in burst_indices:
+                    if burst_id not in burst_groups:
+                        burst_groups[burst_id] = []
+                    burst_groups[burst_id].append(idx)
+                    break
         
-        # Cluster by hash within burst
-        hash_clusters = cluster_by_hash(burst_items, dist_thresh=hash_dist)
-        
-        # Select winner from each cluster
-        for cluster_indices in hash_clusters:
+        # If images span multiple bursts, they're similar enough to be one cluster
+        if burst_groups:
+            # Collect all indices from this cross-burst cluster
+            cluster_indices = []
+            for burst_id in sorted(burst_groups.keys()):
+                cluster_indices.extend(burst_groups[burst_id])
+            
             # Get scores and sort
             cluster_metrics = [(i, metrics[i].score) for i in cluster_indices]
             cluster_metrics.sort(key=lambda x: x[1], reverse=True)
             
-            # Winner is highest scoring
+            # Winner is highest scoring across all bursts
             winner_idx = cluster_metrics[0][0]
             winner_path = metrics[winner_idx].path
+            
+            # Find winner's burst for reporting
+            winner_burst_id = None
+            for burst_id, burst_indices in enumerate(bursts):
+                if winner_idx in burst_indices:
+                    winner_burst_id = burst_id
+                    break
             
             # Copy winner to output
             dst = winners_dir / Path(winner_path).name
@@ -215,13 +243,20 @@ def process_folder(
             # Add to report
             all_cluster_reports.append({
                 "cluster_id": cluster_id_counter,
-                "burst_id": burst_id,
+                "burst_id": winner_burst_id,  # Use winner's burst as primary
+                "burst_ids": list(burst_groups.keys()),  # Track all bursts involved
                 "members": [metrics[i].path for i, _ in cluster_metrics],
                 "winner": winner_path,
                 "scores": [float(score) for _, score in cluster_metrics]
             })
             
+            # Mark as processed
+            for idx, _ in cluster_metrics:
+                processed_indices.add(idx)
+            
             cluster_id_counter += 1
+    
+    print(f"[process] Found {len(all_cluster_reports)} unique image clusters across {len(bursts)} bursts")
     
     # Optional: compute embedding clusters for reference
     emb_clusters = None

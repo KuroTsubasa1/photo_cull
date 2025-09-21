@@ -48,8 +48,19 @@ def cluster_by_hash(items: List[Dict], dist_thresh: int = 8) -> List[List[int]]:
             phash_dist = hamming_distance(item['phash'], other['phash'])
             dhash_dist = hamming_distance(item['dhash'], other['dhash'])
             
-            # Consider similar if either hash is close enough
-            if min(phash_dist, dhash_dist) <= dist_thresh:
+            # More stringent: require BOTH hashes to be similar, or one to be very similar
+            # This reduces false positives where images are grouped incorrectly
+            very_similar_threshold = dist_thresh // 2  # Half the threshold for "very similar"
+            
+            is_similar = False
+            if phash_dist <= very_similar_threshold or dhash_dist <= very_similar_threshold:
+                # If one hash is very similar, that's enough
+                is_similar = True
+            elif phash_dist <= dist_thresh and dhash_dist <= dist_thresh:
+                # Both hashes must be reasonably similar
+                is_similar = True
+            
+            if is_similar:
                 cluster.append(other['idx'])
                 clustered.add(other['idx'])
         

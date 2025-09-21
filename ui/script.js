@@ -189,8 +189,15 @@ function renderClusters(burstId) {
         // Cluster header
         const header = document.createElement('div');
         header.className = 'cluster-header';
+        
+        // Check if cluster spans multiple bursts
+        let clusterInfo = `Cluster ${cluster.cluster_id + 1}`;
+        if (cluster.burst_ids && cluster.burst_ids.length > 1) {
+            clusterInfo += ` (spans bursts ${cluster.burst_ids.map(b => b + 1).join(', ')})`;
+        }
+        
         header.innerHTML = `
-            <div class="cluster-title">Cluster ${cluster.cluster_id + 1}</div>
+            <div class="cluster-title">${clusterInfo}</div>
             <div class="cluster-badge">${cluster.members.length} images</div>
         `;
         clusterDiv.appendChild(header);

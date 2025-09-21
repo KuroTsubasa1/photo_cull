@@ -108,8 +108,9 @@ class FeatureExtractor:
             energies.append(energy)
         
         # High variance in directional energies suggests motion blur
+        # But we need a much higher threshold to avoid false positives
         energy_variance = np.var(energies) / (np.mean(energies) + 1e-10)
-        return energy_variance > 0.5  # Threshold for motion blur detection
+        return energy_variance > 2.5  # Increased threshold - only detect severe motion blur
     
     def compute_blur_score(self, sharpness: float, img_shape: tuple) -> float:
         """Convert sharpness to normalized blur score (0-1, higher = less blurry)
@@ -126,9 +127,10 @@ class FeatureExtractor:
         pixel_count = img_shape[0] * img_shape[1]
         size_factor = np.log10(pixel_count / 1e6 + 1)  # Normalize for megapixels
         
-        # Typical thresholds for different image sizes
-        blur_threshold = 100 * (1 + size_factor)  # Very blurry
-        sharp_threshold = 500 * (1 + size_factor)  # Sharp
+        # Much more lenient thresholds to reduce false positives
+        # Only mark images as blurry if they're REALLY blurry
+        blur_threshold = 30 * (1 + size_factor)  # Only extremely blurry images
+        sharp_threshold = 200 * (1 + size_factor)  # Moderately sharp is good enough
         
         if sharpness < blur_threshold:
             return 0.0
@@ -163,9 +165,9 @@ class FeatureExtractor:
             # Compute sharpness for face region
             face_sharpness = self.compute_sharpness(face_crop)
             
-            # More strict thresholds for faces
-            blur_threshold = 50
-            sharp_threshold = 200
+            # More lenient thresholds for faces too
+            blur_threshold = 20  # Only very blurry faces
+            sharp_threshold = 100  # Lower threshold for sharpness
             
             if face_sharpness < blur_threshold:
                 score = 0.0
@@ -283,7 +285,7 @@ class FeatureExtractor:
             
             # Compute blur metrics
             metrics.blur_score = self.compute_blur_score(metrics.sharpness, img_cv.shape[:2])
-            metrics.is_blurry = metrics.blur_score < 0.3  # Consider image blurry if score < 0.3
+            metrics.is_blurry = metrics.blur_score < 0.15  # Only mark as blurry if really bad
             metrics.tenengrad_score = self.compute_tenengrad(img_cv)
             metrics.has_motion_blur = self.detect_motion_blur(img_cv)
             
