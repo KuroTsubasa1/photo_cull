@@ -421,8 +421,14 @@
             handleFiles(e.dataTransfer.files);
         });
         
-        uploadArea.addEventListener('click', () => {
-            fileInput.click();
+        uploadArea.addEventListener('click', (e) => {
+            // Only trigger if not clicking the label/button itself
+            if (e.target.classList.contains('file-input-label')) {
+                return; // Let the label's natural behavior handle it
+            }
+            if (!e.target.closest('.file-input-label')) {
+                fileInput.click();
+            }
         });
         
         fileInput.addEventListener('change', (e) => {
