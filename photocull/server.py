@@ -10,7 +10,7 @@ import threading
 import queue
 import time
 from pathlib import Path
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, urlparse, unquote
 import traceback
 
 from .main import process_folder
@@ -241,9 +241,9 @@ class PhotoCullHandler(http.server.SimpleHTTPRequestHandler):
     
     def translate_path(self, path):
         """Translate URL path to filesystem path"""
-        # Parse URL
+        # Parse URL and decode
         parsed = urlparse(path)
-        path = parsed.path
+        path = unquote(parsed.path)
         
         # API endpoints don't map to files
         if path.startswith('/api/'):
