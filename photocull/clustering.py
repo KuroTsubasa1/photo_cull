@@ -229,28 +229,48 @@ def score_images(metrics_list: List) -> None:
         for m in metrics_list:
             m.sharpness_z = 0.0
     
-    # Compute final scores with blur penalties
+    # Compute final scores with aesthetic considerations
     for m in metrics_list:
-        # Base score from original metrics
-        base_score = (
-            0.4 * m.sharpness_z +  # Reduced from 0.5 to make room for blur
-            0.25 * m.eyes_open +
-            0.15 * m.exposure_ok
+        # Base technical quality score
+        technical_score = (
+            0.3 * m.sharpness_z +  # Sharpness is important
+            0.2 * m.blur_score +   # No blur
+            0.15 * m.exposure_ok   # Good exposure
         )
         
-        # Add blur score (0-1, higher = less blurry)
-        blur_penalty = 0.2 * m.blur_score  # 20% weight for blur
+        # Portrait quality (if faces detected)
+        portrait_score = 0.0
+        if m.face_count > 0:
+            # Eyes open is critical for portraits
+            portrait_score += 0.25 * m.eyes_open
+            
+            # Face sharpness matters more in portraits
+            if m.face_blur_scores:
+                avg_face_blur = sum(m.face_blur_scores) / len(m.face_blur_scores)
+                portrait_score += 0.1 * avg_face_blur
+        else:
+            # No faces - redistribute portrait weight to technical
+            technical_score += 0.35
         
-        # Additional penalty for motion blur
-        if m.has_motion_blur:
-            blur_penalty -= 0.1  # 10% penalty for motion blur
+        # Aesthetic considerations
+        aesthetic_score = 0.0
         
-        # For portraits with faces, consider face blur
-        if m.face_count > 0 and m.face_blur_scores:
-            # Average face blur score
-            avg_face_blur = sum(m.face_blur_scores) / len(m.face_blur_scores)
-            # If faces are blurry, apply additional penalty
-            if avg_face_blur < 0.5:
-                blur_penalty -= 0.05 * (1 - avg_face_blur)
+        # Prefer well-exposed images (not too dark or bright)
+        if m.exposure_ok > 0.8:
+            aesthetic_score += 0.05
         
-        m.score = base_score + blur_penalty
+        # Slight preference for images without motion blur
+        if not m.has_motion_blur:
+            aesthetic_score += 0.05
+        
+        # Composition hint: prefer images with 1-3 faces over crowds
+        if 1 <= m.face_count <= 3:
+            aesthetic_score += 0.05
+        elif m.face_count > 5:
+            aesthetic_score -= 0.05
+        
+        # Calculate final score
+        m.score = technical_score + portrait_score + aesthetic_score
+        
+        # Ensure score is in reasonable range
+        m.score = max(-2.0, min(2.0, m.score))

@@ -58,6 +58,27 @@
             padding: 1rem;
         }
         
+        .file-list-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #333;
+        }
+        
+        .file-count {
+            color: #888;
+            font-size: 0.9rem;
+        }
+        
+        .file-items-container {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #2a2a2a;
+            border-radius: 0.25rem;
+        }
+        
         .file-item {
             display: flex;
             justify-content: space-between;
@@ -68,6 +89,46 @@
         
         .file-item:last-child {
             border-bottom: none;
+        }
+        
+        .file-item:hover {
+            background: #1f1f1f;
+        }
+        
+        .upload-progress {
+            margin-top: 2rem;
+            background: #1a1a1a;
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            display: none;
+        }
+        
+        .progress-bar-container {
+            width: 100%;
+            height: 24px;
+            background: #0a0a0a;
+            border-radius: 12px;
+            overflow: hidden;
+            margin: 1rem 0;
+        }
+        
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #2563eb, #3b82f6);
+            border-radius: 12px;
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+        
+        .progress-status {
+            text-align: center;
+            color: #888;
+            font-size: 0.9rem;
         }
         
         .process-form {
@@ -244,15 +305,28 @@
         <!-- Upload Area -->
         <div class="upload-area" id="uploadArea">
             <h2>📸 Upload Your Photos</h2>
-            <p>Drag and drop your photos here or click to browse</p>
+            <p>Drag and drop your photos here or click to browse<br>
+            <small style="color: #666;">Supports: JPG, PNG, RAW (CR2, CR3, NEF, ARW, DNG, etc.)</small></p>
             <label for="fileInput" class="file-input-label">Choose Photos</label>
-            <input type="file" id="fileInput" multiple accept="image/*" style="display: none;">
+            <input type="file" id="fileInput" multiple accept="image/*,.cr2,.cr3,.nef,.arw,.dng,.raf,.orf,.rw2,.pef,.srw" style="display: none;">
         </div>
         
         <!-- File List -->
         <div class="file-list" id="fileList" style="display: none;">
-            <h3>Selected Files</h3>
-            <div id="fileItems"></div>
+            <div class="file-list-header">
+                <h3>Selected Files</h3>
+                <span class="file-count" id="fileCount">0 files</span>
+            </div>
+            <div class="file-items-container" id="fileItems"></div>
+        </div>
+        
+        <!-- Upload Progress -->
+        <div class="upload-progress" id="uploadProgress">
+            <h3>Uploading Photos...</h3>
+            <div class="progress-bar-container">
+                <div class="progress-bar" id="progressBar" style="width: 0%">0%</div>
+            </div>
+            <div class="progress-status" id="progressStatus">Preparing upload...</div>
         </div>
         
         <!-- Process Form -->
@@ -327,6 +401,7 @@
         const statusContent = document.getElementById('statusContent');
         const reportsList = document.getElementById('reportsList');
         const reportsContent = document.getElementById('reportsContent');
+        const uploadProgress = document.getElementById('uploadProgress');
         
         let selectedFiles = [];
         
@@ -362,15 +437,44 @@
                 fileList.style.display = 'block';
                 processForm.style.display = 'block';
                 
-                fileItems.innerHTML = selectedFiles.map((file, index) => `
-                    <div class="file-item">
-                        <span>${file.name}</span>
-                        <span style="color: #666; font-size: 0.85rem;">
-                            ${(file.size / 1024 / 1024).toFixed(2)} MB
-                        </span>
-                    </div>
-                `).join('');
+                // Update file count
+                document.getElementById('fileCount').textContent = 
+                    `${selectedFiles.length} file${selectedFiles.length > 1 ? 's' : ''} (${getTotalSize()})`;
+                
+                // Show file list with better formatting
+                fileItems.innerHTML = selectedFiles.map((file, index) => {
+                    const ext = file.name.split('.').pop().toUpperCase();
+                    const isRaw = ['CR2', 'CR3', 'NEF', 'ARW', 'DNG', 'RAF', 'ORF', 'RW2'].includes(ext);
+                    
+                    return `
+                        <div class="file-item">
+                            <span>
+                                ${isRaw ? '📷' : '🖼️'} ${file.name}
+                            </span>
+                            <span style="color: #666; font-size: 0.85rem;">
+                                ${ext} • ${formatFileSize(file.size)}
+                            </span>
+                        </div>
+                    `;
+                }).join('');
             }
+        }
+        
+        // Format file size
+        function formatFileSize(bytes) {
+            if (bytes < 1024 * 1024) {
+                return (bytes / 1024).toFixed(1) + ' KB';
+            } else if (bytes < 1024 * 1024 * 1024) {
+                return (bytes / 1024 / 1024).toFixed(1) + ' MB';
+            } else {
+                return (bytes / 1024 / 1024 / 1024).toFixed(2) + ' GB';
+            }
+        }
+        
+        // Get total size of selected files
+        function getTotalSize() {
+            const total = selectedFiles.reduce((sum, file) => sum + file.size, 0);
+            return formatFileSize(total);
         }
         
         // Hash distance slider
@@ -388,11 +492,19 @@
             }
             
             processBtn.disabled = true;
+            processBtn.textContent = 'Uploading...';
+            
+            // Show upload progress
+            document.getElementById('uploadProgress').style.display = 'block';
+            
+            // Simulate upload progress (in real implementation, use XMLHttpRequest or fetch with progress)
+            await simulateUpload();
+            
+            // Hide upload progress, show status panel
+            document.getElementById('uploadProgress').style.display = 'none';
             processBtn.textContent = 'Processing...';
             statusPanel.style.display = 'block';
             
-            // In a real implementation, we would upload files here
-            // For now, we'll simulate processing
             const params = {
                 hash_dist: parseInt(hashDistSlider.value),
                 burst_gap_ms: parseInt(document.getElementById('burstGap').value),
@@ -424,6 +536,36 @@
                 processBtn.textContent = 'Start Processing';
             }
         });
+        
+        // Simulate upload progress
+        async function simulateUpload() {
+            const progressBar = document.getElementById('progressBar');
+            const progressStatus = document.getElementById('progressStatus');
+            const totalSize = selectedFiles.reduce((sum, file) => sum + file.size, 0);
+            let uploadedSize = 0;
+            
+            for (let i = 0; i < selectedFiles.length; i++) {
+                const file = selectedFiles[i];
+                progressStatus.textContent = `Uploading ${file.name}...`;
+                
+                // Simulate upload chunks
+                const chunks = 10;
+                const chunkSize = file.size / chunks;
+                
+                for (let j = 0; j < chunks; j++) {
+                    uploadedSize += chunkSize;
+                    const percent = Math.round((uploadedSize / totalSize) * 100);
+                    progressBar.style.width = percent + '%';
+                    progressBar.textContent = percent + '%';
+                    
+                    // Simulate network delay
+                    await new Promise(resolve => setTimeout(resolve, 50));
+                }
+            }
+            
+            progressStatus.textContent = 'Upload complete!';
+            await new Promise(resolve => setTimeout(resolve, 500));
+        }
         
         // Poll for processing status
         let statusPollInterval;
