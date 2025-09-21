@@ -20,10 +20,11 @@ A fast, local-first photo culling tool that uses perceptual hashing, classical c
 ## Prerequisites
 
 - **Python 3.8+** with pip
-- **ExifTool** (required for RAW file timestamp extraction)
+- **ExifTool** (optional, for enhanced CR3/RAW file timestamp extraction)
   - macOS: `brew install exiftool`
   - Ubuntu/Debian: `sudo apt install exiftool` or `sudo apt install libimage-exiftool-perl`
   - Windows: Download from [exiftool.org](https://exiftool.org/)
+  - If not installed, falls back to file timestamps for unsupported RAW formats
 
 ## Quickstart
 

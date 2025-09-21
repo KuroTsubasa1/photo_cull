@@ -103,6 +103,15 @@
             background: #059669;
         }
         
+        .btn-delete {
+            background: #dc2626 !important;
+            color: white !important;
+        }
+        
+        .btn-delete:hover {
+            background: #b91c1c !important;
+        }
+        
         .no-preview {
             width: 100%;
             height: 200px;
@@ -213,6 +222,7 @@
                     <div class="report-actions">
                         <button class="btn-small" onclick="viewReport('${report.name}')">View Report</button>
                         <button class="btn-small btn-export" onclick="exportWinners('${report.name}')">Export Winners</button>
+                        <button class="btn-small btn-delete" onclick="deleteReport('${report.name}')" title="Delete this report">🗑️ Delete</button>
                     </div>
                 </div>
             `;
@@ -286,6 +296,34 @@
                 }
             } catch (error) {
                 alert(`❌ Export failed: ${error.message}`);
+            }
+        }
+        
+        async function deleteReport(reportName) {
+            // Confirm deletion
+            if (!confirm(`Are you sure you want to delete the report "${reportName}"?\n\nThis will permanently delete all processed files including thumbnails, winners, and the report data.`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/reports/${reportName}`, {
+                    method: 'DELETE'
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    alert(`✓ Report "${reportName}" deleted successfully`);
+                    // Refresh the reports list
+                    document.getElementById('loading').style.display = 'block';
+                    document.getElementById('reportsContainer').style.display = 'none';
+                    document.getElementById('noReports').style.display = 'none';
+                    loadReports();
+                } else {
+                    alert(`❌ Delete failed: ${result.error}`);
+                }
+            } catch (error) {
+                alert(`❌ Delete failed: ${error.message}`);
             }
         }
         

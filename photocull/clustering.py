@@ -182,25 +182,43 @@ def read_timestamp(img_path: str) -> float:
     except Exception:
         pass
     
-    # Try exiftool for RAW files that exifread can't handle (like CR3)
+    # Try alternative approaches for RAW files that exifread can't handle (like CR3)
     try:
-        import subprocess
         from pathlib import Path
-        
         file_ext = Path(img_path).suffix.lower()
         raw_extensions = {'.cr3', '.cr2', '.nef', '.nrw', '.arw', '.raf', '.orf', '.rw2', '.dng'}
         
         if file_ext in raw_extensions:
-            # Use exiftool to extract timestamp
-            result = subprocess.run(
-                ['exiftool', '-DateTimeOriginal', '-d', '%Y:%m:%d %H:%M:%S', '-S', '-s', img_path],
-                capture_output=True, text=True, timeout=10
-            )
-            if result.returncode == 0 and result.stdout.strip():
-                datetime_str = result.stdout.strip()
-                if datetime_str:
-                    dt = dtparser.parse(datetime_str.replace(':', '-', 2))
-                    return dt.timestamp()
+            # First try exiftool if available (optional dependency)
+            try:
+                import subprocess
+                result = subprocess.run(
+                    ['exiftool', '-DateTimeOriginal', '-d', '%Y:%m:%d %H:%M:%S', '-S', '-s', img_path],
+                    capture_output=True, text=True, timeout=10
+                )
+                if result.returncode == 0 and result.stdout.strip():
+                    datetime_str = result.stdout.strip()
+                    if datetime_str:
+                        dt = dtparser.parse(datetime_str.replace(':', '-', 2))
+                        return dt.timestamp()
+            except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
+                pass  # exiftool not available or failed
+            
+            # Try python-exiv2 as alternative to exiftool
+            try:
+                import exiv2
+                img = exiv2.ImageFactory.open(img_path)
+                exif_data = img.readMetadata()
+                if exif_data:
+                    # Look for datetime fields
+                    for key in ['Exif.Photo.DateTimeOriginal', 'Exif.Image.DateTime']:
+                        if key in exif_data:
+                            datetime_str = str(exif_data[key])
+                            if datetime_str:
+                                dt = dtparser.parse(datetime_str.replace(':', '-', 2))
+                                return dt.timestamp()
+            except (ImportError, Exception):
+                pass  # python-exiv2 not available or failed
     except Exception:
         pass
     

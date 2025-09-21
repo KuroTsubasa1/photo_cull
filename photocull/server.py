@@ -294,9 +294,44 @@ class PhotoCullHandler(http.server.SimpleHTTPRequestHandler):
         """Handle preflight OPTIONS requests"""
         self.send_response(200)
         self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS')
         self.send_header('Access-Control-Allow-Headers', 'Content-Type')
         self.end_headers()
+    
+    def do_DELETE(self):
+        """Handle DELETE requests"""
+        if self.path.startswith('/api/'):
+            self.handle_api_delete()
+        else:
+            self.send_error(404)
+    
+    def handle_api_delete(self):
+        """Handle API DELETE requests"""
+        if self.path.startswith('/api/reports/'):
+            # Delete specific report
+            report_name = self.path[13:]  # Remove '/api/reports/'
+            
+            # Validate report name (no path traversal)
+            if not report_name or '/' in report_name or '..' in report_name:
+                self.send_json_response({'error': 'Invalid report name'}, 400)
+                return
+            
+            # Check if report exists
+            report_dir = Path.cwd() / 'output' / report_name
+            if not report_dir.exists() or not (report_dir / 'report.json').exists():
+                self.send_json_response({'error': 'Report not found'}, 404)
+                return
+            
+            try:
+                # Delete the entire report directory
+                import shutil
+                shutil.rmtree(report_dir)
+                self.send_json_response({'success': True, 'message': f'Report "{report_name}" deleted'})
+            except Exception as e:
+                self.send_json_response({'error': f'Failed to delete report: {str(e)}'}, 500)
+        
+        else:
+            self.send_error(404)
     
     def handle_api_get(self):
         """Handle API GET requests"""
