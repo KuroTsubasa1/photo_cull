@@ -11,9 +11,7 @@ import webbrowser
 import argparse
 
 class PhotoCullHandler(http.server.SimpleHTTPRequestHandler):
-    def __init__(self, *args, output_dir="out", **kwargs):
-        self.output_dir = Path(output_dir).resolve()
-        super().__init__(*args, **kwargs)
+    output_dir = Path("out").resolve()  # Class variable
     
     def translate_path(self, path):
         """Translate URL path to filesystem path"""
@@ -26,7 +24,11 @@ class PhotoCullHandler(http.server.SimpleHTTPRequestHandler):
             file_path = self.output_dir / path[1:]  # Remove leading /
             return str(file_path)
         
-        # Default behavior for other files
+        # For report.json, serve from output directory
+        if path == '/report.json':
+            return str(self.output_dir / 'report.json')
+        
+        # Default behavior for UI files
         return super().translate_path(path)
     
     def end_headers(self):
@@ -54,11 +56,14 @@ def serve_ui(port=8000, output_dir="out"):
         print(f"Run 'python -m photocull.main' first to generate report")
         return
     
+    # Set the output directory for the handler
+    PhotoCullHandler.output_dir = output_dir
+    
     # Change to UI directory
     os.chdir(script_dir)
     
-    # Create handler with output directory
-    handler = lambda *args: PhotoCullHandler(*args, output_dir=output_dir)
+    # Use the handler directly
+    handler = PhotoCullHandler
     
     with socketserver.TCPServer(("", port), handler) as httpd:
         url = f"http://localhost:{port}"

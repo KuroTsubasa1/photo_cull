@@ -18,6 +18,32 @@ loadBtn.addEventListener('click', () => fileInput.click());
 fileInput.addEventListener('change', handleFileLoad);
 exportBtn.addEventListener('click', exportReport);
 
+// Auto-load report.json if served by our server
+window.addEventListener('DOMContentLoaded', async () => {
+    try {
+        const response = await fetch('/report.json');
+        if (response.ok) {
+            const report = await response.json();
+            console.log('Auto-loaded report.json from server');
+            reportData = report;
+            
+            // Enable export button
+            exportBtn.disabled = false;
+            
+            // Initialize UI
+            renderSummary();
+            renderBurstList();
+            
+            // Show first burst if available
+            if (report.bursts && report.bursts.length > 0) {
+                selectBurst(0);
+            }
+        }
+    } catch (err) {
+        console.log('Could not auto-load report.json - use Load button to select file');
+    }
+});
+
 document.querySelector('.close').addEventListener('click', () => {
     modal.style.display = 'none';
 });
