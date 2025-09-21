@@ -416,11 +416,27 @@ function selectImage(clusterIndex, imageIndex) {
     currentImage = imageIndex;
     
     // Update visual selection
+    let selectedCard = null;
     document.querySelectorAll('.image-card').forEach(card => {
         const isSelected = parseInt(card.dataset.clusterIndex) === clusterIndex && 
                           parseInt(card.dataset.imageIndex) === imageIndex;
         card.classList.toggle('selected', isSelected);
+        if (isSelected) {
+            selectedCard = card;
+        }
     });
+    
+    // Scroll selected card into view if needed
+    if (selectedCard) {
+        const content = document.getElementById('content');
+        const cardRect = selectedCard.getBoundingClientRect();
+        const contentRect = content.getBoundingClientRect();
+        
+        // Check if card is outside visible area
+        if (cardRect.top < contentRect.top || cardRect.bottom > contentRect.bottom) {
+            selectedCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }
     
     // Find the image data
     const element = allImageElements.find(el => 
