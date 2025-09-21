@@ -73,11 +73,21 @@ window.addEventListener('DOMContentLoaded', () => {
 
 // Auto-load report.json if served by our server
 window.addEventListener('DOMContentLoaded', async () => {
+    // Check if a specific report is requested via URL parameter
+    const urlParams = new URLSearchParams(window.location.search);
+    const reportName = urlParams.get('report');
+    
+    let reportUrl = '/report.json';
+    if (reportName) {
+        // Load specific report from output directory
+        reportUrl = `/output/${reportName}/report.json`;
+    }
+    
     try {
-        const response = await fetch('/report.json');
+        const response = await fetch(reportUrl);
         if (response.ok) {
             const report = await response.json();
-            console.log('Auto-loaded report.json from server');
+            console.log(`Loaded report from ${reportUrl}`);
             reportData = report;
             
             // Enable export button
@@ -99,7 +109,7 @@ window.addEventListener('DOMContentLoaded', async () => {
             }
         }
     } catch (err) {
-        console.log('Could not auto-load report.json - use Load button to select file');
+        console.log('Could not auto-load report - use Load button to select file');
     }
 });
 
@@ -709,8 +719,14 @@ function getImageUrl(path) {
     if (path.startsWith('http://') || path.startsWith('https://')) {
         return path;
     } else if (path.includes('thumbnails/')) {
-        // Thumbnail path - prepend slash for server
-        if (path.startsWith('/')) {
+        // Check if we're viewing a specific report
+        const urlParams = new URLSearchParams(window.location.search);
+        const reportName = urlParams.get('report');
+        
+        if (reportName) {
+            // Prepend the output directory path
+            return `/output/${reportName}/${path}`;
+        } else if (path.startsWith('/')) {
             return path;
         } else {
             return '/' + path;
