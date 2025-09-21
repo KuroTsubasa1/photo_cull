@@ -39,6 +39,8 @@ htmlcov/
 # Project specific
 out/
 output/
+uploads/
+temp/
 *.jpg
 *.jpeg
 *.png
@@ -46,6 +48,24 @@ output/
 *.tiff
 *.tif
 *.webp
+# Raw formats
+*.CR3
+*.cr3
+*.CR2
+*.cr2
+*.NEF
+*.nef
+*.ARW
+*.arw
+*.DNG
+*.dng
+*.RAF
+*.raf
+*.ORF
+*.orf
+*.RW2
+*.rw2
+# Allow UI files
 !ui/*.html
 !ui/*.css
 !ui/*.js
