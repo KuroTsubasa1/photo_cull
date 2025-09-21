@@ -1,6 +1,9 @@
 // State management
 let reportData = null;
 let currentBurst = 0;
+let currentCluster = 0;
+let currentImage = 0;
+let allImageElements = [];
 
 // DOM elements
 const fileInput = document.getElementById('fileInput');
@@ -37,6 +40,12 @@ window.addEventListener('DOMContentLoaded', async () => {
             // Show first burst if available
             if (report.bursts && report.bursts.length > 0) {
                 selectBurst(0);
+                // Auto-select first image
+                setTimeout(() => {
+                    if (allImageElements.length > 0) {
+                        selectImage(0, 0);
+                    }
+                }, 100);
             }
         }
     } catch (err) {
@@ -73,6 +82,12 @@ async function handleFileLoad(event) {
         // Show first burst if available
         if (reportData.bursts && reportData.bursts.length > 0) {
             selectBurst(0);
+            // Auto-select first image
+            setTimeout(() => {
+                if (allImageElements.length > 0) {
+                    selectImage(0, 0);
+                }
+            }, 100);
         }
     } catch (error) {
         alert('Error loading report file: ' + error.message);
@@ -132,17 +147,23 @@ function renderBurstList() {
     
     burstList.innerHTML = '';
     
+    // Filter out empty bursts (no clusters)
+    const nonEmptyBursts = [];
     reportData.bursts.forEach((burst, index) => {
+        const burstClusters = reportData.hash_clusters.filter(c => c.burst_id === index);
+        if (burstClusters.length > 0) {
+            nonEmptyBursts.push({burst, index, clusters: burstClusters});
+        }
+    });
+    
+    nonEmptyBursts.forEach(({burst, index, clusters}) => {
         const li = document.createElement('li');
         li.className = 'burst-item';
         li.dataset.burstId = index;
         
-        // Count clusters in this burst
-        const burstClusters = reportData.hash_clusters.filter(c => c.burst_id === index);
-        
         li.innerHTML = `
             <div class="burst-name">Burst ${index + 1}</div>
-            <div class="burst-info">${burst.length} images • ${burstClusters.length} clusters</div>
+            <div class="burst-info">${burst.length} images • ${clusters.length} clusters</div>
         `;
         
         li.addEventListener('click', () => selectBurst(index));
@@ -153,6 +174,8 @@ function renderBurstList() {
 // Select and display a burst
 function selectBurst(burstId) {
     currentBurst = burstId;
+    currentCluster = 0;
+    currentImage = 0;
     
     // Update sidebar selection
     document.querySelectorAll('.burst-item').forEach(item => {
@@ -181,6 +204,7 @@ function renderClusters(burstId) {
     }
     
     clustersContainer.innerHTML = '';
+    allImageElements = [];
     
     burstClusters.forEach(cluster => {
         const clusterDiv = document.createElement('div');
@@ -211,7 +235,7 @@ function renderClusters(burstId) {
             const score = cluster.scores[index];
             const isWinner = imagePath === cluster.winner;
             
-            const card = createImageCard(imageData, score, isWinner, cluster.cluster_id);
+            const card = createImageCard(imageData, score, isWinner, cluster.cluster_id, burstClusters.indexOf(cluster), index);
             imagesGrid.appendChild(card);
         });
         
@@ -221,14 +245,22 @@ function renderClusters(burstId) {
 }
 
 // Create an image card
-function createImageCard(imageData, score, isWinner, clusterId) {
+function createImageCard(imageData, score, isWinner, clusterId, clusterIndex, imageIndex) {
     const card = document.createElement('div');
     card.className = 'image-card' + (isWinner ? ' winner' : '');
+    card.dataset.clusterId = clusterId;
+    card.dataset.clusterIndex = clusterIndex;
+    card.dataset.imageIndex = imageIndex;
+    
+    // Store reference for keyboard navigation
+    allImageElements.push({card, imageData, score, isWinner, clusterId, clusterIndex, imageIndex});
     
     // Image container
     const imgContainer = document.createElement('div');
     imgContainer.className = 'image-container';
-    imgContainer.addEventListener('click', () => showModal(imageData));
+    imgContainer.addEventListener('click', () => {
+        selectImage(clusterIndex, imageIndex);
+    });
     
     // Try to load image thumbnail (prefer thumbnail_path if available)
     const img = document.createElement('img');
@@ -376,6 +408,208 @@ function showModal(imageData) {
         Sharpness: ${imageData.sharpness.toFixed(0)} • 
         Score: ${imageData.score.toFixed(3)}
     `;
+}
+
+// Select an image and show preview
+function selectImage(clusterIndex, imageIndex) {
+    currentCluster = clusterIndex;
+    currentImage = imageIndex;
+    
+    // Update visual selection
+    document.querySelectorAll('.image-card').forEach(card => {
+        const isSelected = parseInt(card.dataset.clusterIndex) === clusterIndex && 
+                          parseInt(card.dataset.imageIndex) === imageIndex;
+        card.classList.toggle('selected', isSelected);
+    });
+    
+    // Find the image data
+    const element = allImageElements.find(el => 
+        el.clusterIndex === clusterIndex && el.imageIndex === imageIndex
+    );
+    
+    if (element) {
+        showPreview(element.imageData, element.score, element.isWinner);
+    }
+}
+
+// Show image in preview panel
+function showPreview(imageData, score, isWinner) {
+    const previewImg = document.getElementById('previewImage');
+    const previewInfo = document.getElementById('previewInfo');
+    
+    // Load image
+    const imageSrc = imageData.thumbnail_path || imageData.path;
+    previewImg.src = getImageUrl(imageSrc);
+    previewImg.classList.add('loaded');
+    previewImg.onerror = () => {
+        if (imageSrc !== imageData.path) {
+            previewImg.src = getImageUrl(imageData.path);
+            previewImg.onerror = () => {
+                previewImg.classList.remove('loaded');
+            };
+        } else {
+            previewImg.classList.remove('loaded');
+        }
+    };
+    
+    // Show info
+    let infoHtml = `<h4>${getFileName(imageData.path)}</h4>`;
+    
+    infoHtml += `
+        <div class="info-row">
+            <span class="info-label">Score</span>
+            <span class="info-value">${score.toFixed(3)}</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">Status</span>
+            <span class="info-value">${isWinner ? 'Winner' : 'Similar'}</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">Dimensions</span>
+            <span class="info-value">${imageData.width} × ${imageData.height}</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">Sharpness</span>
+            <span class="info-value">${imageData.sharpness.toFixed(0)}</span>
+        </div>
+    `;
+    
+    if (imageData.blur_score !== undefined) {
+        infoHtml += `
+            <div class="info-row">
+                <span class="info-label">Blur Score</span>
+                <span class="info-value">${(imageData.blur_score * 100).toFixed(0)}% ${imageData.is_blurry ? '(Blurry)' : ''}</span>
+            </div>
+        `;
+    }
+    
+    if (imageData.has_motion_blur) {
+        infoHtml += `
+            <div class="info-row">
+                <span class="info-label">Motion Blur</span>
+                <span class="info-value">Detected</span>
+            </div>
+        `;
+    }
+    
+    if (imageData.face_count > 0) {
+        infoHtml += `
+            <div class="info-row">
+                <span class="info-label">Faces</span>
+                <span class="info-value">${imageData.face_count}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Eyes Open</span>
+                <span class="info-value">${(imageData.eyes_open * 100).toFixed(0)}%</span>
+            </div>
+        `;
+    }
+    
+    previewInfo.innerHTML = infoHtml;
+}
+
+// Keyboard navigation
+document.addEventListener('keydown', (e) => {
+    if (!reportData) return;
+    
+    const burstClusters = reportData.hash_clusters.filter(c => c.burst_id === currentBurst);
+    if (burstClusters.length === 0) return;
+    
+    switch(e.key) {
+        case 'ArrowLeft':
+            e.preventDefault();
+            navigateImage(-1);
+            break;
+        case 'ArrowRight':
+            e.preventDefault();
+            navigateImage(1);
+            break;
+        case 'ArrowUp':
+            e.preventDefault();
+            navigateBurst(-1);
+            break;
+        case 'ArrowDown':
+            e.preventDefault();
+            navigateBurst(1);
+            break;
+        case ' ':
+            e.preventDefault();
+            promoteCurrentImage();
+            break;
+    }
+});
+
+// Navigate between images
+function navigateImage(direction) {
+    const burstClusters = reportData.hash_clusters.filter(c => c.burst_id === currentBurst);
+    if (burstClusters.length === 0) return;
+    
+    const currentClusterImages = burstClusters[currentCluster]?.members.length || 0;
+    
+    if (direction > 0) {
+        // Move right
+        if (currentImage < currentClusterImages - 1) {
+            currentImage++;
+        } else if (currentCluster < burstClusters.length - 1) {
+            currentCluster++;
+            currentImage = 0;
+        } else {
+            // Wrap to beginning
+            currentCluster = 0;
+            currentImage = 0;
+        }
+    } else {
+        // Move left
+        if (currentImage > 0) {
+            currentImage--;
+        } else if (currentCluster > 0) {
+            currentCluster--;
+            currentImage = burstClusters[currentCluster].members.length - 1;
+        } else {
+            // Wrap to end
+            currentCluster = burstClusters.length - 1;
+            currentImage = burstClusters[currentCluster].members.length - 1;
+        }
+    }
+    
+    selectImage(currentCluster, currentImage);
+}
+
+// Navigate between bursts
+function navigateBurst(direction) {
+    const burstItems = Array.from(document.querySelectorAll('.burst-item'));
+    if (burstItems.length === 0) return;
+    
+    const currentIndex = burstItems.findIndex(item => 
+        parseInt(item.dataset.burstId) === currentBurst
+    );
+    
+    let newIndex = currentIndex + direction;
+    if (newIndex < 0) newIndex = burstItems.length - 1;
+    if (newIndex >= burstItems.length) newIndex = 0;
+    
+    const newBurstId = parseInt(burstItems[newIndex].dataset.burstId);
+    selectBurst(newBurstId);
+    
+    // Auto-select first image in new burst
+    setTimeout(() => {
+        if (allImageElements.length > 0) {
+            selectImage(0, 0);
+        }
+    }, 100);
+}
+
+// Promote current image to winner
+function promoteCurrentImage() {
+    const element = allImageElements.find(el => 
+        el.clusterIndex === currentCluster && el.imageIndex === currentImage
+    );
+    
+    if (element && !element.isWinner) {
+        promoteImage(element.imageData.path, element.clusterId);
+        // Re-select the same image after re-render
+        setTimeout(() => selectImage(currentCluster, currentImage), 100);
+    }
 }
 
 // Helper functions
