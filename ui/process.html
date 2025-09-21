@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PhotoCull - Process Photos</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .process-container {
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 2rem;
+        }
+        
+        .upload-area {
+            background: #1a1a1a;
+            border: 2px dashed #444;
+            border-radius: 1rem;
+            padding: 3rem;
+            text-align: center;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+        
+        .upload-area.dragover {
+            border-color: #2563eb;
+            background: #1e293b;
+        }
+        
+        .upload-area h2 {
+            color: #e0e0e0;
+            margin-bottom: 1rem;
+        }
+        
+        .upload-area p {
+            color: #888;
+            margin-bottom: 2rem;
+        }
+        
+        .file-input-label {
+            display: inline-block;
+            padding: 0.75rem 1.5rem;
+            background: #2563eb;
+            color: white;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .file-input-label:hover {
+            background: #1d4ed8;
+        }
+        
+        .file-list {
+            margin-top: 2rem;
+            background: #1a1a1a;
+            border-radius: 0.5rem;
+            padding: 1rem;
+        }
+        
+        .file-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem;
+            border-bottom: 1px solid #333;
+        }
+        
+        .file-item:last-child {
+            border-bottom: none;
+        }
+        
+        .process-form {
+            background: #1a1a1a;
+            border-radius: 0.5rem;
+            padding: 2rem;
+            margin-top: 2rem;
+        }
+        
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        .form-group label {
+            display: block;
+            color: #a0a0a0;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+        }
+        
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 0.5rem;
+            background: #0a0a0a;
+            border: 1px solid #333;
+            border-radius: 0.25rem;
+            color: #e0e0e0;
+        }
+        
+        .form-group input[type="checkbox"] {
+            width: auto;
+            margin-right: 0.5rem;
+        }
+        
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+        
+        .process-btn {
+            width: 100%;
+            padding: 1rem;
+            background: #10b981;
+            color: white;
+            border: none;
+            border-radius: 0.5rem;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .process-btn:hover:not(:disabled) {
+            background: #059669;
+        }
+        
+        .process-btn:disabled {
+            background: #374151;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+        
+        .status-panel {
+            background: #1a1a1a;
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            margin-top: 2rem;
+        }
+        
+        .status-item {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem;
+            background: #0f0f0f;
+            border-radius: 0.25rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 1rem;
+            animation: pulse 2s infinite;
+        }
+        
+        .status-indicator.queued {
+            background: #fbbf24;
+        }
+        
+        .status-indicator.processing {
+            background: #3b82f6;
+        }
+        
+        .status-indicator.completed {
+            background: #10b981;
+            animation: none;
+        }
+        
+        .status-indicator.failed {
+            background: #ef4444;
+            animation: none;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .reports-list {
+            background: #1a1a1a;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-top: 2rem;
+        }
+        
+        .report-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            background: #0f0f0f;
+            border-radius: 0.25rem;
+            margin-bottom: 0.5rem;
+            transition: background 0.2s;
+        }
+        
+        .report-item:hover {
+            background: #1f1f1f;
+        }
+        
+        .report-info {
+            flex: 1;
+        }
+        
+        .report-name {
+            color: #e0e0e0;
+            font-weight: 500;
+            margin-bottom: 0.25rem;
+        }
+        
+        .report-stats {
+            color: #888;
+            font-size: 0.85rem;
+        }
+        
+        .view-btn {
+            padding: 0.5rem 1rem;
+            background: #2563eb;
+            color: white;
+            border: none;
+            border-radius: 0.25rem;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+        }
+        
+        .view-btn:hover {
+            background: #1d4ed8;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>PhotoCull - Process Photos</h1>
+        <div class="actions">
+            <a href="/" style="color: white; text-decoration: none; padding: 0.5rem 1rem; background: #374151; border-radius: 0.5rem;">View Results</a>
+        </div>
+    </header>
+    
+    <div class="process-container">
+        <!-- Upload Area -->
+        <div class="upload-area" id="uploadArea">
+            <h2>📸 Upload Your Photos</h2>
+            <p>Drag and drop your photos here or click to browse</p>
+            <label for="fileInput" class="file-input-label">Choose Photos</label>
+            <input type="file" id="fileInput" multiple accept="image/*" style="display: none;">
+        </div>
+        
+        <!-- File List -->
+        <div class="file-list" id="fileList" style="display: none;">
+            <h3>Selected Files</h3>
+            <div id="fileItems"></div>
+        </div>
+        
+        <!-- Process Form -->
+        <div class="process-form" id="processForm" style="display: none;">
+            <h3>Processing Options</h3>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="hashDist">Similarity Threshold</label>
+                    <input type="range" id="hashDist" min="4" max="16" value="8">
+                    <small style="color: #666;">Hamming distance: <span id="hashDistValue">8</span></small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="burstGap">Burst Gap (ms)</label>
+                    <input type="number" id="burstGap" value="700" min="100" max="5000">
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="thumbnailSize">Thumbnail Size</label>
+                    <select id="thumbnailSize">
+                        <option value="400">Small (400px)</option>
+                        <option value="800" selected>Medium (800px)</option>
+                        <option value="1200">Large (1200px)</option>
+                        <option value="1600">Extra Large (1600px)</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="withEmbeddings">
+                        Compute CLIP Embeddings
+                    </label>
+                    <small style="color: #666; display: block; margin-top: 0.25rem;">
+                        For semantic similarity (slower)
+                    </small>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="jobName">Job Name (optional)</label>
+                <input type="text" id="jobName" placeholder="e.g., Wedding_Photos">
+            </div>
+            
+            <button class="process-btn" id="processBtn">Start Processing</button>
+        </div>
+        
+        <!-- Status Panel -->
+        <div class="status-panel" id="statusPanel" style="display: none;">
+            <h3>Processing Status</h3>
+            <div id="statusContent"></div>
+        </div>
+        
+        <!-- Reports List -->
+        <div class="reports-list" id="reportsList">
+            <h3>Previous Reports</h3>
+            <div id="reportsContent">Loading...</div>
+        </div>
+    </div>
+    
+    <script>
+        // File upload handling
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const fileList = document.getElementById('fileList');
+        const fileItems = document.getElementById('fileItems');
+        const processForm = document.getElementById('processForm');
+        const processBtn = document.getElementById('processBtn');
+        const statusPanel = document.getElementById('statusPanel');
+        const statusContent = document.getElementById('statusContent');
+        const reportsList = document.getElementById('reportsList');
+        const reportsContent = document.getElementById('reportsContent');
+        
+        let selectedFiles = [];
+        
+        // Drag and drop
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            handleFiles(e.dataTransfer.files);
+        });
+        
+        uploadArea.addEventListener('click', () => {
+            fileInput.click();
+        });
+        
+        fileInput.addEventListener('change', (e) => {
+            handleFiles(e.target.files);
+        });
+        
+        // Handle file selection
+        function handleFiles(files) {
+            selectedFiles = Array.from(files);
+            
+            if (selectedFiles.length > 0) {
+                fileList.style.display = 'block';
+                processForm.style.display = 'block';
+                
+                fileItems.innerHTML = selectedFiles.map((file, index) => `
+                    <div class="file-item">
+                        <span>${file.name}</span>
+                        <span style="color: #666; font-size: 0.85rem;">
+                            ${(file.size / 1024 / 1024).toFixed(2)} MB
+                        </span>
+                    </div>
+                `).join('');
+            }
+        }
+        
+        // Hash distance slider
+        const hashDistSlider = document.getElementById('hashDist');
+        const hashDistValue = document.getElementById('hashDistValue');
+        hashDistSlider.addEventListener('input', () => {
+            hashDistValue.textContent = hashDistSlider.value;
+        });
+        
+        // Process button
+        processBtn.addEventListener('click', async () => {
+            if (selectedFiles.length === 0) {
+                alert('Please select photos first');
+                return;
+            }
+            
+            processBtn.disabled = true;
+            processBtn.textContent = 'Processing...';
+            statusPanel.style.display = 'block';
+            
+            // In a real implementation, we would upload files here
+            // For now, we'll simulate processing
+            const params = {
+                hash_dist: parseInt(hashDistSlider.value),
+                burst_gap_ms: parseInt(document.getElementById('burstGap').value),
+                thumbnail_size: parseInt(document.getElementById('thumbnailSize').value),
+                with_embeddings: document.getElementById('withEmbeddings').checked,
+                name: document.getElementById('jobName').value || undefined
+            };
+            
+            try {
+                // Start processing job
+                const response = await fetch('/api/process', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(params)
+                });
+                
+                const result = await response.json();
+                
+                if (result.error) {
+                    throw new Error(result.error);
+                }
+                
+                // Start polling for status
+                pollStatus();
+                
+            } catch (error) {
+                alert('Processing failed: ' + error.message);
+                processBtn.disabled = false;
+                processBtn.textContent = 'Start Processing';
+            }
+        });
+        
+        // Poll for processing status
+        let statusPollInterval;
+        
+        async function pollStatus() {
+            statusPollInterval = setInterval(async () => {
+                try {
+                    const response = await fetch('/api/status');
+                    const status = await response.json();
+                    
+                    updateStatusDisplay(status);
+                    
+                    // Check if processing is complete
+                    if (!status.current && status.queue_size === 0) {
+                        clearInterval(statusPollInterval);
+                        processBtn.disabled = false;
+                        processBtn.textContent = 'Start Processing';
+                        loadReports();
+                    }
+                } catch (error) {
+                    console.error('Status poll error:', error);
+                }
+            }, 2000);
+        }
+        
+        // Update status display
+        function updateStatusDisplay(status) {
+            let html = '';
+            
+            if (status.current) {
+                html += `
+                    <div class="status-item">
+                        <div class="status-indicator processing"></div>
+                        <div>
+                            <strong>Processing:</strong> ${status.current.name || 'Unnamed'}
+                            <br><small>Started ${new Date(status.current.start_time * 1000).toLocaleTimeString()}</small>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            if (status.queue_size > 0) {
+                html += `
+                    <div class="status-item">
+                        <div class="status-indicator queued"></div>
+                        <div>
+                            <strong>Queued:</strong> ${status.queue_size} job(s)
+                        </div>
+                    </div>
+                `;
+            }
+            
+            status.history.slice(-3).reverse().forEach(job => {
+                html += `
+                    <div class="status-item">
+                        <div class="status-indicator ${job.status}"></div>
+                        <div>
+                            <strong>${job.name || 'Unnamed'}:</strong> ${job.status}
+                            ${job.duration ? `<br><small>Duration: ${job.duration.toFixed(1)}s</small>` : ''}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            statusContent.innerHTML = html || '<p style="color: #666;">No active jobs</p>';
+        }
+        
+        // Load available reports
+        async function loadReports() {
+            try {
+                const response = await fetch('/api/reports');
+                const reports = await response.json();
+                
+                if (reports.length === 0) {
+                    reportsContent.innerHTML = '<p style="color: #666;">No reports available yet</p>';
+                    return;
+                }
+                
+                reportsContent.innerHTML = reports.map(report => `
+                    <div class="report-item">
+                        <div class="report-info">
+                            <div class="report-name">${report.name}</div>
+                            <div class="report-stats">
+                                ${report.images} images • ${report.clusters} clusters
+                            </div>
+                        </div>
+                        <a href="/?report=${report.path}" class="view-btn">View</a>
+                    </div>
+                `).join('');
+                
+            } catch (error) {
+                console.error('Failed to load reports:', error);
+                reportsContent.innerHTML = '<p style="color: #666;">Failed to load reports</p>';
+            }
+        }
+        
+        // Load reports on page load
+        loadReports();
+        
+        // Check for active jobs on load
+        fetch('/api/status')
+            .then(r => r.json())
+            .then(status => {
+                updateStatusDisplay(status);
+                if (status.current || status.queue_size > 0) {
+                    statusPanel.style.display = 'block';
+                    pollStatus();
+                }
+            });
+    </script>
+</body>
+</html>

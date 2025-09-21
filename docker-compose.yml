@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  photocull:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mount local directories for easy access
+      - ./uploads:/app/uploads
+      - ./output:/app/output
+      - ./temp:/app/temp
+    environment:
+      - PORT=8000
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+    
+    # Resource limits (adjust as needed)
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+        reservations:
+          memory: 1G
