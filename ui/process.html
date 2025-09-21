@@ -209,6 +209,48 @@
             margin-bottom: 0.5rem;
         }
         
+        .processing-details {
+            background: #0a0a0a;
+            border: 1px solid #2563eb;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .processing-stage {
+            font-size: 1.1rem;
+            color: #3b82f6;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+        
+        .processing-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .stat-box {
+            background: #1a1a1a;
+            padding: 0.75rem;
+            border-radius: 0.25rem;
+            text-align: center;
+        }
+        
+        .stat-label {
+            color: #666;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            margin-bottom: 0.25rem;
+        }
+        
+        .stat-value {
+            color: #f0f0f0;
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+        
         .status-indicator {
             width: 10px;
             height: 10px;
@@ -642,15 +684,86 @@
             let html = '';
             
             if (status.current) {
+                const stage = status.current.stage || status.stage || 'Processing...';
+                const progress = status.current.progress || status.progress || {};
+                
                 html += `
                     <div class="status-item">
                         <div class="status-indicator processing"></div>
-                        <div>
+                        <div style="flex: 1;">
                             <strong>Processing:</strong> ${status.current.name || 'Unnamed'}
                             <br><small>Started ${new Date(status.current.start_time * 1000).toLocaleTimeString()}</small>
                         </div>
                     </div>
                 `;
+                
+                // Add processing details
+                html += `
+                    <div class="processing-details">
+                        <div class="processing-stage">📸 ${stage}</div>
+                `;
+                
+                // Show progress stats if available
+                if (Object.keys(progress).length > 0) {
+                    html += '<div class="processing-stats">';
+                    
+                    if (progress.total_images) {
+                        html += `
+                            <div class="stat-box">
+                                <div class="stat-label">Total Images</div>
+                                <div class="stat-value">${progress.total_images}</div>
+                            </div>
+                        `;
+                    }
+                    
+                    if (progress.current_image) {
+                        const percent = Math.round((progress.current_image / progress.total_images) * 100);
+                        html += `
+                            <div class="stat-box">
+                                <div class="stat-label">Progress</div>
+                                <div class="stat-value">${percent}%</div>
+                            </div>
+                        `;
+                    }
+                    
+                    if (progress.burst_count !== undefined) {
+                        html += `
+                            <div class="stat-box">
+                                <div class="stat-label">Bursts</div>
+                                <div class="stat-value">${progress.burst_count}</div>
+                            </div>
+                        `;
+                    }
+                    
+                    if (progress.cluster_count !== undefined) {
+                        html += `
+                            <div class="stat-box">
+                                <div class="stat-label">Clusters</div>
+                                <div class="stat-value">${progress.cluster_count}</div>
+                            </div>
+                        `;
+                    }
+                    
+                    if (progress.winners !== undefined) {
+                        html += `
+                            <div class="stat-box">
+                                <div class="stat-label">Winners</div>
+                                <div class="stat-value">${progress.winners}</div>
+                            </div>
+                        `;
+                    }
+                    
+                    html += '</div>';
+                }
+                
+                // Show current file if processing
+                if (progress.current_file) {
+                    html += `<div style="margin-top: 0.5rem; color: #888; font-size: 0.85rem;">
+                        Current: ${progress.current_file}
+                    </div>`;
+                }
+                
+                html += '</div>';
             }
             
             if (status.queue_size > 0) {

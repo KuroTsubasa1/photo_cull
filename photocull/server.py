@@ -21,6 +21,8 @@ class ProcessingQueue:
         self.queue = queue.Queue()
         self.current_job = None
         self.job_history = []
+        self.processing_stage = ""
+        self.processing_progress = {}
         self.worker = threading.Thread(target=self._worker, daemon=True)
         self.worker.start()
     
@@ -29,34 +31,172 @@ class ProcessingQueue:
         while True:
             job = self.queue.get()
             self.current_job = job
+            self.processing_stage = "Starting..."
+            self.processing_progress = {}
+            
             try:
                 job['status'] = 'processing'
                 job['start_time'] = time.time()
                 
-                # Run the processing
-                process_folder(
-                    job['input_dir'],
-                    with_embeddings=job.get('with_embeddings', False),
-                    hash_dist=job.get('hash_dist', 8),
-                    out_dir=job['output_dir'],
-                    burst_gap_ms=job.get('burst_gap_ms', 700),
-                    generate_thumbnails=True,
-                    thumbnail_size=job.get('thumbnail_size', 800)
-                )
+                # Create a custom process function with stage updates
+                self._process_with_stages(job)
                 
                 job['status'] = 'completed'
                 job['end_time'] = time.time()
                 job['duration'] = job['end_time'] - job['start_time']
+                self.processing_stage = "Complete!"
                 
             except Exception as e:
                 job['status'] = 'failed'
                 job['error'] = str(e)
                 job['traceback'] = traceback.format_exc()
+                self.processing_stage = f"Failed: {str(e)}"
                 print(f"Processing failed: {e}")
             
             self.job_history.append(job)
             self.current_job = None
             self.queue.task_done()
+    
+    def _process_with_stages(self, job):
+        """Process with stage updates"""
+        from .main import list_images
+        from .features import FeatureExtractor, extract_clip_embedding
+        from .clustering import cluster_by_hash, score_images, group_into_bursts
+        
+        input_dir = job['input_dir']
+        output_dir = job['output_dir']
+        
+        # Stage 1: Scanning
+        self.processing_stage = "Scanning for images..."
+        paths = list(list_images(input_dir))
+        self.processing_progress['total_images'] = len(paths)
+        
+        if not paths:
+            raise ValueError("No images found in upload directory")
+        
+        # Create output directories
+        Path(output_dir).mkdir(parents=True, exist_ok=True)
+        winners_dir = Path(output_dir) / "winners"
+        similar_dir = Path(output_dir) / "similar"
+        thumbnails_dir = Path(output_dir) / "thumbnails"
+        
+        for d in [winners_dir, similar_dir, thumbnails_dir]:
+            d.mkdir(parents=True, exist_ok=True)
+        
+        # Stage 2: Feature extraction
+        self.processing_stage = "Extracting features..."
+        extractor = FeatureExtractor()
+        metrics = []
+        
+        for i, path in enumerate(paths):
+            self.processing_progress['current_image'] = i + 1
+            self.processing_progress['current_file'] = Path(path).name
+            self.processing_stage = f"Processing {i+1}/{len(paths)}: {Path(path).name}"
+            
+            m = extractor.extract_all_features(path)
+            
+            # Generate thumbnails
+            from .raw_utils import create_thumbnail, is_raw_file
+            import hashlib
+            
+            if job.get('generate_thumbnails', True) or is_raw_file(path):
+                file_hash = hashlib.md5(path.encode()).hexdigest()[:8]
+                thumb_name = f"{Path(path).stem}_{file_hash}.jpg"
+                thumb_path = thumbnails_dir / thumb_name
+                
+                if not thumb_path.exists():
+                    create_thumbnail(path, str(thumb_path), 
+                                   (job.get('thumbnail_size', 800), job.get('thumbnail_size', 800)))
+                    m.thumbnail_path = f"thumbnails/{thumb_name}"
+            
+            metrics.append(m)
+        
+        # Stage 3: Scoring
+        self.processing_stage = "Computing quality scores..."
+        score_images(metrics)
+        
+        # Stage 4: Grouping
+        self.processing_stage = "Grouping into bursts..."
+        bursts = group_into_bursts(paths, gap_ms=job.get('burst_gap_ms', 700))
+        self.processing_progress['burst_count'] = len(bursts)
+        
+        # Stage 5: Clustering
+        self.processing_stage = "Finding similar images..."
+        all_cluster_reports = []
+        cluster_id_counter = 0
+        
+        # Process clusters (simplified from main.py)
+        all_items = [
+            {"idx": i, "phash": m.phash, "dhash": m.dhash}
+            for i, m in enumerate(metrics)
+        ]
+        global_hash_clusters = cluster_by_hash(all_items, dist_thresh=job.get('hash_dist', 8))
+        
+        self.processing_progress['cluster_count'] = len(global_hash_clusters)
+        
+        # Stage 6: Selecting winners
+        self.processing_stage = "Selecting best photos..."
+        processed_indices = set()
+        
+        for cluster_idx, global_cluster in enumerate(global_hash_clusters):
+            self.processing_stage = f"Selecting winners {cluster_idx+1}/{len(global_hash_clusters)}..."
+            
+            if all(idx in processed_indices for idx in global_cluster):
+                continue
+            
+            # Get scores and sort
+            cluster_metrics = [(i, metrics[i].score) for i in global_cluster]
+            cluster_metrics.sort(key=lambda x: x[1], reverse=True)
+            
+            # Winner is highest scoring
+            winner_idx = cluster_metrics[0][0]
+            winner_path = metrics[winner_idx].path
+            
+            # Copy winner
+            import shutil
+            dst = winners_dir / Path(winner_path).name
+            try:
+                shutil.copy2(winner_path, dst)
+            except Exception as e:
+                print(f"[copy] Error copying winner: {e}")
+            
+            # Copy similar
+            for idx, score in cluster_metrics[1:]:
+                similar_path = metrics[idx].path
+                dst = similar_dir / f"cluster{cluster_id_counter}_{Path(similar_path).name}"
+                try:
+                    shutil.copy2(similar_path, dst)
+                except Exception as e:
+                    print(f"[copy] Error copying similar: {e}")
+            
+            # Add to report
+            all_cluster_reports.append({
+                "cluster_id": cluster_id_counter,
+                "members": [metrics[i].path for i, _ in cluster_metrics],
+                "winner": winner_path,
+                "scores": [float(score) for _, score in cluster_metrics]
+            })
+            
+            for idx, _ in cluster_metrics:
+                processed_indices.add(idx)
+            
+            cluster_id_counter += 1
+        
+        # Stage 7: Saving report
+        self.processing_stage = "Generating report..."
+        report = {
+            "params": job,
+            "images": [m.to_dict() for m in metrics],
+            "hash_clusters": all_cluster_reports,
+            "bursts": bursts
+        }
+        
+        report_path = Path(output_dir) / "report.json"
+        with open(report_path, 'w', encoding='utf-8') as f:
+            json.dump(report, f, indent=2)
+        
+        self.processing_progress['winners'] = len(all_cluster_reports)
+        self.processing_stage = "Processing complete!"
     
     def add_job(self, job):
         """Add a processing job to the queue"""
@@ -67,11 +207,20 @@ class ProcessingQueue:
     
     def get_status(self):
         """Get current processing status"""
-        return {
+        status = {
             'current': self.current_job,
             'queue_size': self.queue.qsize(),
-            'history': self.job_history[-10:]  # Last 10 jobs
+            'history': self.job_history[-10:],  # Last 10 jobs
+            'stage': self.processing_stage,
+            'progress': self.processing_progress
         }
+        
+        # Add stage to current job if processing
+        if self.current_job and self.current_job.get('status') == 'processing':
+            status['current']['stage'] = self.processing_stage
+            status['current']['progress'] = self.processing_progress
+        
+        return status
 
 # Global processing queue
 processing_queue = ProcessingQueue()
