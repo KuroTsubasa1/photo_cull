@@ -249,14 +249,14 @@ class PhotoCullHandler(http.server.SimpleHTTPRequestHandler):
         if path.startswith('/api/'):
             return None
             
-        # Handle thumbnail and output paths
-        if '/thumbnails/' in path or '/out/' in path or '/report.json' in path:
-            # Map to output directory
+        # Handle thumbnail, output, and upload paths
+        if '/thumbnails/' in path or '/out/' in path or '/report.json' in path or '/uploads/' in path:
+            # Map to local directories
             if path.startswith('/'):
                 path = path[1:]
             
             # Check if it's a specific report
-            if path.startswith('output/'):
+            if path.startswith('output/') or path.startswith('uploads/'):
                 # Use current working directory for local development
                 file_path = Path.cwd() / path
             else:

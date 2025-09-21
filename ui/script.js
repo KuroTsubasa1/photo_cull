@@ -859,7 +859,16 @@ function getImageUrl(path) {
     // Handle different path formats
     if (path.startsWith('http://') || path.startsWith('https://')) {
         return path;
-    } else if (path.includes('thumbnails/')) {
+    }
+    
+    // Handle Docker paths from old reports by converting to local server paths
+    if (path.startsWith('/app/')) {
+        // Convert /app/uploads/xxx to /uploads/xxx for server serving
+        // Convert /app/output/xxx to /output/xxx for server serving
+        return path.replace('/app', '');
+    }
+    
+    if (path.includes('thumbnails/')) {
         // Check if we're viewing a specific report
         const urlParams = new URLSearchParams(window.location.search);
         const reportName = urlParams.get('report');
@@ -872,12 +881,12 @@ function getImageUrl(path) {
         } else {
             return '/' + path;
         }
-    } else if (path.startsWith('file://')) {
-        // File protocol - only works if browser allows it
+    } else if (path.startsWith('/output/') || path.startsWith('/uploads/')) {
+        // Already a server path, use as-is
         return path;
     } else if (path.startsWith('/')) {
-        // Absolute path - try file protocol
-        return 'file://' + path;
+        // Other absolute paths - serve relative to server root
+        return path;
     } else {
         // Assume relative path
         return '/' + path;
