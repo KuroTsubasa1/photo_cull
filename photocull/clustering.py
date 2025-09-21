@@ -26,16 +26,13 @@ def cluster_by_hash(items: List[Dict], dist_thresh: int = 8) -> List[List[int]]:
         List of clusters, where each cluster is a list of indices
     """
     if not items:
-        print("DEBUG: No items to cluster")
         return []
     
     # Check for empty hashes
     empty_hash_count = sum(1 for item in items if not item.get('phash') or not item.get('dhash'))
     if empty_hash_count > 0:
-        print(f"DEBUG: Warning - {empty_hash_count} items have empty hashes")
         # If all items have empty hashes, create individual clusters for each
         if empty_hash_count == len(items):
-            print("DEBUG: All items had empty hashes, creating individual clusters")
             return [[item['idx']] for item in items]
         # Filter out items with empty hashes for clustering, but they should still be processed
         valid_items = [item for item in items if item.get('phash') and item.get('dhash')]
@@ -87,7 +84,6 @@ def cluster_by_hash(items: List[Dict], dist_thresh: int = 8) -> List[List[int]]:
     for item in empty_items:
         clusters.append([item['idx']])
     
-    print(f"DEBUG: Created {len(clusters)} clusters total")
     return clusters
 
 

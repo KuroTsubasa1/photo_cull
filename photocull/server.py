@@ -111,9 +111,6 @@ class ProcessingQueue:
             
             metrics.append(m)
         
-        print(f"DEBUG: Extracted metrics for {len(metrics)} images")
-        if len(metrics) > 0:
-            print(f"DEBUG: First metric - phash: {metrics[0].phash}, dhash: {metrics[0].dhash}, score: {metrics[0].score}")
         
         # Stage 3: Scoring
         self.processing_stage = "Computing quality scores..."
@@ -122,8 +119,6 @@ class ProcessingQueue:
         # Stage 4: Grouping
         self.processing_stage = "Grouping into bursts..."
         bursts = group_into_bursts(paths, gap_ms=job.get('burst_gap_ms', 700))
-        print(f"DEBUG: Generated {len(bursts)} bursts")
-        print(f"DEBUG: Burst sizes: {[len(b) for b in bursts]}")
         self.processing_progress['burst_count'] = len(bursts)
         
         # Stage 5: Clustering
@@ -136,14 +131,7 @@ class ProcessingQueue:
             {"idx": i, "phash": m.phash, "dhash": m.dhash}
             for i, m in enumerate(metrics)
         ]
-        print(f"DEBUG: Found {len(all_items)} items for clustering")
-        print(f"DEBUG: First few items: {all_items[:3] if len(all_items) > 0 else 'None'}")
-        
         global_hash_clusters = cluster_by_hash(all_items, dist_thresh=job.get('hash_dist', 8))
-        
-        print(f"DEBUG: Generated {len(global_hash_clusters)} clusters")
-        print(f"DEBUG: Cluster sizes: {[len(c) for c in global_hash_clusters]}")
-        
         self.processing_progress['cluster_count'] = len(global_hash_clusters)
         
         # Stage 6: Selecting winners
@@ -259,17 +247,19 @@ class PhotoCullHandler(http.server.SimpleHTTPRequestHandler):
             
             # Check if it's a specific report
             if path.startswith('output/'):
-                file_path = Path('/app') / path
+                # Use current working directory for local development
+                file_path = Path.cwd() / path
             else:
-                # Default to latest output
-                file_path = Path('/app/output') / path
+                # Default to latest output in current directory
+                file_path = Path.cwd() / 'output' / path
             
             return str(file_path)
         
         # Default to UI directory
         if path == '/':
             path = '/home.html'
-        ui_path = Path('/app/ui') / path[1:]
+        # Use current working directory for local development
+        ui_path = Path.cwd() / 'ui' / path[1:]
         return str(ui_path)
     
     def do_GET(self):
@@ -305,7 +295,7 @@ class PhotoCullHandler(http.server.SimpleHTTPRequestHandler):
         elif self.path == '/api/reports':
             # List available reports
             reports = []
-            output_dir = Path('/app/output')
+            output_dir = Path.cwd() / 'output'
             for report_file in output_dir.glob('*/report.json'):
                 try:
                     with open(report_file) as f:
@@ -332,7 +322,7 @@ class PhotoCullHandler(http.server.SimpleHTTPRequestHandler):
             params = json.loads(post_data)
             
             # Validate parameters
-            input_dir = params.get('input_dir', '/app/uploads')
+            input_dir = params.get('input_dir', str(Path.cwd() / 'uploads'))
             if not Path(input_dir).exists():
                 self.send_json_response({'error': 'Input directory not found'}, 400)
                 return
@@ -340,7 +330,7 @@ class PhotoCullHandler(http.server.SimpleHTTPRequestHandler):
             # Create unique output directory
             timestamp = time.strftime('%Y%m%d_%H%M%S')
             output_name = params.get('name', f'process_{timestamp}')
-            output_dir = f'/app/output/{output_name}'
+            output_dir = str(Path.cwd() / 'output' / output_name)
             
             # Add job to queue
             job = {
@@ -368,7 +358,7 @@ class PhotoCullHandler(http.server.SimpleHTTPRequestHandler):
                 return
             
             # Load report
-            report_path = Path(f'/app/output/{report_name}/report.json')
+            report_path = Path.cwd() / 'output' / report_name / 'report.json'
             if not report_path.exists():
                 self.send_json_response({'error': 'Report not found'}, 404)
                 return
@@ -379,7 +369,7 @@ class PhotoCullHandler(http.server.SimpleHTTPRequestHandler):
                 
                 # Create export directory
                 timestamp = time.strftime('%Y%m%d_%H%M%S')
-                export_dir = Path(f'/app/output/{report_name}/winners_export_{timestamp}')
+                export_dir = Path.cwd() / 'output' / report_name / f'winners_export_{timestamp}'
                 export_dir.mkdir(parents=True, exist_ok=True)
                 
                 # Copy winner images
@@ -438,7 +428,7 @@ class PhotoCullHandler(http.server.SimpleHTTPRequestHandler):
             
             # Create upload directory
             timestamp = time.strftime('%Y%m%d_%H%M%S')
-            upload_dir = Path('/app/uploads') / timestamp
+            upload_dir = Path.cwd() / 'uploads' / timestamp
             upload_dir.mkdir(parents=True, exist_ok=True)
             
             # Parse multipart data
@@ -512,8 +502,9 @@ def main():
     print(f"PhotoCull Server Starting")
     print(f"=" * 40)
     print(f"Web UI: http://localhost:{PORT}")
-    print(f"Upload directory: /app/uploads")
-    print(f"Output directory: /app/output")
+    print(f"Upload directory: {Path.cwd() / 'uploads'}")
+    print(f"Output directory: {Path.cwd() / 'output'}")
+    print(f"UI directory: {Path.cwd() / 'ui'}")
     print(f"=" * 40)
     print(f"Press Ctrl+C to stop")
     

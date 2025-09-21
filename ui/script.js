@@ -6,9 +6,6 @@ let currentImage = 0;
 let allImageElements = [];
 
 // DOM elements
-const fileInput = document.getElementById('fileInput');
-const loadBtn = document.getElementById('loadBtn');
-const exportBtn = document.getElementById('exportBtn');
 const exportWinnersBtn = document.getElementById('exportWinnersBtn');
 const helpBtn = document.getElementById('helpBtn');
 const burstList = document.getElementById('burstList');
@@ -22,9 +19,6 @@ const splitter = document.getElementById('splitter');
 const previewPanel = document.getElementById('previewPanel');
 
 // Event listeners
-loadBtn.addEventListener('click', () => fileInput.click());
-fileInput.addEventListener('change', handleFileLoad);
-exportBtn.addEventListener('click', exportReport);
 exportWinnersBtn.addEventListener('click', exportWinners);
 helpBtn.addEventListener('click', () => {
     helpModal.style.display = 'block';
@@ -98,7 +92,6 @@ window.addEventListener('DOMContentLoaded', async () => {
             reportData = report;
             
             // Enable export buttons
-            exportBtn.disabled = false;
             exportWinnersBtn.disabled = false;
             
             // Initialize UI
@@ -166,53 +159,7 @@ window.addEventListener('click', (e) => {
     }
 });
 
-// File handling
-async function handleFileLoad(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-    
-    try {
-        const text = await file.text();
-        reportData = JSON.parse(text);
-        
-        // Enable export buttons
-        exportBtn.disabled = false;
-        exportWinnersBtn.disabled = false;
-        
-        // Initialize UI
-        renderSummary();
-        renderBurstList();
-        
-        // Show first burst if available
-        if (reportData.bursts && reportData.bursts.length > 0) {
-            selectBurst(0);
-            // Auto-select first image
-            setTimeout(() => {
-                if (allImageElements.length > 0) {
-                    selectImage(0, 0);
-                }
-            }, 100);
-        }
-    } catch (error) {
-        alert('Error loading report file: ' + error.message);
-    }
-}
 
-// Export updated report
-function exportReport() {
-    if (!reportData) return;
-    
-    const dataStr = JSON.stringify(reportData, null, 2);
-    const blob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'report.updated.json';
-    a.click();
-    
-    URL.revokeObjectURL(url);
-}
 
 // Export winners list
 function exportWinners() {
