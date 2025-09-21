@@ -138,6 +138,12 @@ class ProcessingQueue:
         self.processing_stage = "Selecting best photos..."
         processed_indices = set()
         
+        # Create a mapping from image index to burst index
+        idx_to_burst = {}
+        for burst_idx, burst in enumerate(bursts):
+            for img_idx in burst:
+                idx_to_burst[img_idx] = burst_idx
+        
         for cluster_idx, global_cluster in enumerate(global_hash_clusters):
             self.processing_stage = f"Selecting winners {cluster_idx+1}/{len(global_hash_clusters)}..."
             
@@ -151,6 +157,9 @@ class ProcessingQueue:
             # Winner is highest scoring
             winner_idx = cluster_metrics[0][0]
             winner_path = metrics[winner_idx].path
+            
+            # Determine which burst this cluster belongs to (use winner's burst)
+            burst_id = idx_to_burst.get(winner_idx, 0)
             
             # Copy winner
             import shutil
@@ -169,9 +178,10 @@ class ProcessingQueue:
                 except Exception as e:
                     print(f"[copy] Error copying similar: {e}")
             
-            # Add to report
+            # Add to report with burst_id
             all_cluster_reports.append({
                 "cluster_id": cluster_id_counter,
+                "burst_id": burst_id,
                 "members": [metrics[i].path for i, _ in cluster_metrics],
                 "winner": winner_path,
                 "scores": [float(score) for _, score in cluster_metrics]
@@ -331,6 +341,9 @@ class PhotoCullHandler(http.server.SimpleHTTPRequestHandler):
             timestamp = time.strftime('%Y%m%d_%H%M%S')
             output_name = params.get('name', f'process_{timestamp}')
             output_dir = str(Path.cwd() / 'output' / output_name)
+            
+            # Ensure paths are local, not Docker paths
+            print(f"Processing job - Input: {input_dir}, Output: {output_dir}")
             
             # Add job to queue
             job = {
