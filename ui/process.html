@@ -497,8 +497,17 @@
             // Show upload progress
             document.getElementById('uploadProgress').style.display = 'block';
             
-            // Simulate upload progress (in real implementation, use XMLHttpRequest or fetch with progress)
-            await simulateUpload();
+            // Upload files
+            let uploadDir;
+            try {
+                uploadDir = await uploadFiles();
+            } catch (error) {
+                alert('Upload failed: ' + error.message);
+                processBtn.disabled = false;
+                processBtn.textContent = 'Start Processing';
+                document.getElementById('uploadProgress').style.display = 'none';
+                return;
+            }
             
             // Hide upload progress, show status panel
             document.getElementById('uploadProgress').style.display = 'none';
@@ -506,6 +515,7 @@
             statusPanel.style.display = 'block';
             
             const params = {
+                input_dir: uploadDir,
                 hash_dist: parseInt(hashDistSlider.value),
                 burst_gap_ms: parseInt(document.getElementById('burstGap').value),
                 thumbnail_size: parseInt(document.getElementById('thumbnailSize').value),
@@ -537,34 +547,64 @@
             }
         });
         
-        // Simulate upload progress
-        async function simulateUpload() {
-            const progressBar = document.getElementById('progressBar');
-            const progressStatus = document.getElementById('progressStatus');
-            const totalSize = selectedFiles.reduce((sum, file) => sum + file.size, 0);
-            let uploadedSize = 0;
-            
-            for (let i = 0; i < selectedFiles.length; i++) {
-                const file = selectedFiles[i];
-                progressStatus.textContent = `Uploading ${file.name}...`;
+        // Upload files with real progress
+        async function uploadFiles() {
+            return new Promise((resolve, reject) => {
+                const formData = new FormData();
+                const progressBar = document.getElementById('progressBar');
+                const progressStatus = document.getElementById('progressStatus');
                 
-                // Simulate upload chunks
-                const chunks = 10;
-                const chunkSize = file.size / chunks;
-                
-                for (let j = 0; j < chunks; j++) {
-                    uploadedSize += chunkSize;
-                    const percent = Math.round((uploadedSize / totalSize) * 100);
-                    progressBar.style.width = percent + '%';
-                    progressBar.textContent = percent + '%';
-                    
-                    // Simulate network delay
-                    await new Promise(resolve => setTimeout(resolve, 50));
+                // Add all files to form data
+                for (let i = 0; i < selectedFiles.length; i++) {
+                    formData.append('files', selectedFiles[i]);
                 }
-            }
-            
-            progressStatus.textContent = 'Upload complete!';
-            await new Promise(resolve => setTimeout(resolve, 500));
+                
+                // Use XMLHttpRequest for progress tracking
+                const xhr = new XMLHttpRequest();
+                
+                // Track upload progress
+                xhr.upload.addEventListener('progress', (e) => {
+                    if (e.lengthComputable) {
+                        const percent = Math.round((e.loaded / e.total) * 100);
+                        progressBar.style.width = percent + '%';
+                        progressBar.textContent = percent + '%';
+                        
+                        if (percent < 100) {
+                            progressStatus.textContent = `Uploading... ${formatFileSize(e.loaded)} / ${formatFileSize(e.total)}`;
+                        } else {
+                            progressStatus.textContent = 'Processing upload...';
+                        }
+                    }
+                });
+                
+                // Handle completion
+                xhr.addEventListener('load', () => {
+                    if (xhr.status === 200) {
+                        try {
+                            const response = JSON.parse(xhr.responseText);
+                            progressStatus.textContent = `Uploaded ${response.count} files!`;
+                            resolve(response.upload_dir);
+                        } catch (e) {
+                            reject(new Error('Invalid response from server'));
+                        }
+                    } else {
+                        reject(new Error(`Upload failed: ${xhr.statusText}`));
+                    }
+                });
+                
+                // Handle errors
+                xhr.addEventListener('error', () => {
+                    reject(new Error('Network error during upload'));
+                });
+                
+                xhr.addEventListener('abort', () => {
+                    reject(new Error('Upload cancelled'));
+                });
+                
+                // Start upload
+                xhr.open('POST', '/api/upload');
+                xhr.send(formData);
+            });
         }
         
         // Poll for processing status

@@ -91,11 +91,18 @@ class PhotoCullHandler(http.server.SimpleHTTPRequestHandler):
             return None
             
         # Handle thumbnail and output paths
-        if '/thumbnails/' in path or '/out/' in path or path == '/report.json':
+        if '/thumbnails/' in path or '/out/' in path or '/report.json' in path:
             # Map to output directory
             if path.startswith('/'):
                 path = path[1:]
-            file_path = Path('/app/output') / path
+            
+            # Check if it's a specific report
+            if path.startswith('output/'):
+                file_path = Path('/app') / path
+            else:
+                # Default to latest output
+                file_path = Path('/app/output') / path
+            
             return str(file_path)
         
         # Default to UI directory
@@ -118,6 +125,14 @@ class PhotoCullHandler(http.server.SimpleHTTPRequestHandler):
             self.handle_api_post()
         else:
             self.send_error(404)
+    
+    def do_OPTIONS(self):
+        """Handle preflight OPTIONS requests"""
+        self.send_response(200)
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        self.end_headers()
     
     def handle_api_get(self):
         """Handle API GET requests"""
@@ -182,24 +197,71 @@ class PhotoCullHandler(http.server.SimpleHTTPRequestHandler):
             
         elif self.path == '/api/upload':
             # Handle file upload
-            content_type = self.headers['Content-Type']
+            content_type = self.headers.get('Content-Type', '')
+            
+            # Parse boundary from content-type
             if not content_type.startswith('multipart/form-data'):
                 self.send_error(400, 'Expected multipart/form-data')
                 return
             
-            # Parse multipart data (simplified - in production use proper parser)
+            # Get boundary
+            boundary = content_type.split('boundary=')[1] if 'boundary=' in content_type else None
+            if not boundary:
+                self.send_error(400, 'No boundary in multipart/form-data')
+                return
+            
+            # Read the entire body
             content_length = int(self.headers['Content-Length'])
             post_data = self.rfile.read(content_length)
             
-            # Save uploaded files to /app/uploads
-            upload_dir = Path('/app/uploads') / time.strftime('%Y%m%d_%H%M%S')
+            # Create upload directory
+            timestamp = time.strftime('%Y%m%d_%H%M%S')
+            upload_dir = Path('/app/uploads') / timestamp
             upload_dir.mkdir(parents=True, exist_ok=True)
             
-            # This is a simplified implementation
-            # In production, use a proper multipart parser
+            # Parse multipart data
+            files_saved = []
+            boundary_bytes = f'--{boundary}'.encode()
+            parts = post_data.split(boundary_bytes)
+            
+            for part in parts[1:-1]:  # Skip first (empty) and last (closing)
+                if not part:
+                    continue
+                    
+                # Split headers and content
+                try:
+                    header_end = part.index(b'\r\n\r\n')
+                    headers = part[:header_end].decode('utf-8', errors='ignore')
+                    content = part[header_end + 4:]
+                    
+                    # Remove trailing \r\n
+                    if content.endswith(b'\r\n'):
+                        content = content[:-2]
+                    
+                    # Parse filename from Content-Disposition header
+                    if 'filename=' in headers:
+                        # Extract filename
+                        filename_start = headers.index('filename="') + 10
+                        filename_end = headers.index('"', filename_start)
+                        filename = headers[filename_start:filename_end]
+                        
+                        # Save file
+                        if filename:
+                            file_path = upload_dir / filename
+                            with open(file_path, 'wb') as f:
+                                f.write(content)
+                            files_saved.append(filename)
+                            print(f"Saved: {file_path}")
+                
+                except Exception as e:
+                    print(f"Error parsing part: {e}")
+                    continue
+            
+            # Send response
             self.send_json_response({
                 'upload_dir': str(upload_dir),
-                'message': 'Upload endpoint ready (multipart parsing not fully implemented)'
+                'files_saved': files_saved,
+                'count': len(files_saved)
             })
             
         else:
