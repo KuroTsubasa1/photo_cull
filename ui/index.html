@@ -11,6 +11,8 @@
         <h1>PhotoCull Review</h1>
         <div class="actions">
             <a href="/process.html" style="color: white; text-decoration: none; padding: 0.5rem 1rem; background: #10b981; border-radius: 0.5rem; margin-right: 1rem;">Process New Photos</a>
+            <button id="exportWinnersBtn" style="background: #8b5cf6; margin-right: 1rem;" disabled>Export Winners</button>
+            <button id="helpBtn" style="background: #6b7280; margin-right: 1rem;">Help</button>
             <input type="file" id="fileInput" accept="application/json" />
             <button id="loadBtn">Load report.json</button>
             <button id="exportBtn" disabled>Export JSON</button>
@@ -52,6 +54,47 @@
         <span class="close">&times;</span>
         <img class="modal-content" id="modalImg">
         <div id="modalCaption"></div>
+    </div>
+    
+    <div id="helpModal" class="modal">
+        <div class="modal-content" style="max-width: 600px; padding: 2rem; background: #1a1a1a; border-radius: 1rem; margin: 10% auto;">
+            <span class="close" style="color: #999;">&times;</span>
+            <h2 style="color: #f0f0f0; margin-bottom: 1.5rem;">Understanding Bursts & Clusters</h2>
+            
+            <div style="margin-bottom: 1.5rem;">
+                <h3 style="color: #3b82f6; margin-bottom: 0.5rem;">📸 Bursts</h3>
+                <p style="color: #ccc; line-height: 1.6;">
+                    A <strong>burst</strong> is a group of photos taken in rapid succession (within 700ms of each other by default).
+                    For example, when you hold down the shutter button or use burst mode, all those photos form one burst.
+                    Bursts are detected by analyzing the timestamp gaps between photos.
+                </p>
+            </div>
+            
+            <div style="margin-bottom: 1.5rem;">
+                <h3 style="color: #10b981; margin-bottom: 0.5rem;">🎯 Clusters</h3>
+                <p style="color: #ccc; line-height: 1.6;">
+                    A <strong>cluster</strong> is a group of similar or near-duplicate images found anywhere in your photo set.
+                    Images are clustered using perceptual hashing - photos that look similar (same scene, angle, composition) 
+                    are grouped together, even if they're from different bursts or taken at different times.
+                </p>
+            </div>
+            
+            <div style="background: #0f0f0f; padding: 1rem; border-radius: 0.5rem; margin-bottom: 1.5rem;">
+                <h4 style="color: #fbbf24; margin-bottom: 0.5rem;">Example:</h4>
+                <p style="color: #ccc; line-height: 1.6; margin: 0;">
+                    You take 10 burst shots of a group photo, then 5 more bursts later from a slightly different angle.
+                    This creates <strong>2 bursts</strong> (based on time gaps) but might result in just <strong>1 cluster</strong>
+                    (all 15 photos are similar enough to be grouped together). PhotoCull selects the best photo from each cluster as the winner.
+                </p>
+            </div>
+            
+            <div style="margin-bottom: 1rem;">
+                <h3 style="color: #8b5cf6; margin-bottom: 0.5rem;">🏆 Winners</h3>
+                <p style="color: #ccc; line-height: 1.6;">
+                    The best photo from each cluster based on: sharpness, open eyes, good exposure, no motion blur, and aesthetic composition.
+                </p>
+            </div>
+        </div>
     </div>
     
     <script src="script.js"></script>

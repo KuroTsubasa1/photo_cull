@@ -9,12 +9,15 @@ let allImageElements = [];
 const fileInput = document.getElementById('fileInput');
 const loadBtn = document.getElementById('loadBtn');
 const exportBtn = document.getElementById('exportBtn');
+const exportWinnersBtn = document.getElementById('exportWinnersBtn');
+const helpBtn = document.getElementById('helpBtn');
 const burstList = document.getElementById('burstList');
 const summary = document.getElementById('summary');
 const clustersContainer = document.getElementById('clusters');
 const modal = document.getElementById('imageModal');
 const modalImg = document.getElementById('modalImg');
 const modalCaption = document.getElementById('modalCaption');
+const helpModal = document.getElementById('helpModal');
 const splitter = document.getElementById('splitter');
 const previewPanel = document.getElementById('previewPanel');
 
@@ -22,6 +25,10 @@ const previewPanel = document.getElementById('previewPanel');
 loadBtn.addEventListener('click', () => fileInput.click());
 fileInput.addEventListener('change', handleFileLoad);
 exportBtn.addEventListener('click', exportReport);
+exportWinnersBtn.addEventListener('click', exportWinners);
+helpBtn.addEventListener('click', () => {
+    helpModal.style.display = 'block';
+});
 
 // Splitter resize functionality
 let isResizing = false;
@@ -90,8 +97,9 @@ window.addEventListener('DOMContentLoaded', async () => {
             console.log(`Loaded report from ${reportUrl}`);
             reportData = report;
             
-            // Enable export button
+            // Enable export buttons
             exportBtn.disabled = false;
+            exportWinnersBtn.disabled = false;
             
             // Initialize UI
             renderSummary();
@@ -113,13 +121,22 @@ window.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
-document.querySelector('.close').addEventListener('click', () => {
-    modal.style.display = 'none';
+// Modal close handlers
+document.querySelectorAll('.close').forEach(closeBtn => {
+    closeBtn.addEventListener('click', (e) => {
+        const parentModal = e.target.closest('.modal');
+        if (parentModal) {
+            parentModal.style.display = 'none';
+        }
+    });
 });
 
 window.addEventListener('click', (e) => {
     if (e.target === modal) {
         modal.style.display = 'none';
+    }
+    if (e.target === helpModal) {
+        helpModal.style.display = 'none';
     }
 });
 
@@ -132,8 +149,9 @@ async function handleFileLoad(event) {
         const text = await file.text();
         reportData = JSON.parse(text);
         
-        // Enable export button
+        // Enable export buttons
         exportBtn.disabled = false;
+        exportWinnersBtn.disabled = false;
         
         // Initialize UI
         renderSummary();
@@ -168,6 +186,109 @@ function exportReport() {
     a.click();
     
     URL.revokeObjectURL(url);
+}
+
+// Export winners list
+function exportWinners() {
+    if (!reportData || !reportData.hash_clusters) return;
+    
+    // Collect all winner paths
+    const winners = reportData.hash_clusters.map(cluster => {
+        const winnerPath = cluster.winner;
+        const fileName = winnerPath.split(/[\\/]/).pop();
+        return {
+            original_path: winnerPath,
+            file_name: fileName,
+            cluster_id: cluster.cluster_id,
+            score: cluster.scores[0],
+            cluster_size: cluster.members.length
+        };
+    });
+    
+    // Create CSV content
+    let csvContent = 'File Name,Original Path,Score,Cluster Size,Cluster ID\n';
+    winners.forEach(w => {
+        csvContent += `"${w.file_name}","${w.original_path}",${w.score.toFixed(3)},${w.cluster_size},${w.cluster_id}\n`;
+    });
+    
+    // Also create a simple text list
+    const textList = winners.map(w => w.file_name).join('\n');
+    
+    // Create download dialog
+    const exportModal = document.createElement('div');
+    exportModal.className = 'modal';
+    exportModal.style.display = 'block';
+    exportModal.innerHTML = `
+        <div class="modal-content" style="max-width: 500px; padding: 2rem; background: #1a1a1a; border-radius: 1rem; margin: 10% auto;">
+            <span class="close" style="color: #999; cursor: pointer;">&times;</span>
+            <h2 style="color: #f0f0f0; margin-bottom: 1.5rem;">Export Winners</h2>
+            <p style="color: #ccc; margin-bottom: 1.5rem;">
+                Found ${winners.length} winning photos. Choose export format:
+            </p>
+            <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                <button id="exportCsvBtn" style="flex: 1; padding: 0.75rem; background: #2563eb; color: white; border: none; border-radius: 0.5rem; cursor: pointer;">
+                    Export as CSV
+                </button>
+                <button id="exportTxtBtn" style="flex: 1; padding: 0.75rem; background: #10b981; color: white; border: none; border-radius: 0.5rem; cursor: pointer;">
+                    Export as Text List
+                </button>
+                <button id="copyListBtn" style="flex: 1; padding: 0.75rem; background: #8b5cf6; color: white; border: none; border-radius: 0.5rem; cursor: pointer;">
+                    Copy List to Clipboard
+                </button>
+            </div>
+            <div id="exportStatus" style="margin-top: 1rem; color: #10b981; display: none;"></div>
+        </div>
+    `;
+    
+    document.body.appendChild(exportModal);
+    
+    // Add event handlers
+    exportModal.querySelector('.close').addEventListener('click', () => {
+        document.body.removeChild(exportModal);
+    });
+    
+    exportModal.addEventListener('click', (e) => {
+        if (e.target === exportModal) {
+            document.body.removeChild(exportModal);
+        }
+    });
+    
+    document.getElementById('exportCsvBtn').addEventListener('click', () => {
+        const blob = new Blob([csvContent], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'photocull_winners.csv';
+        a.click();
+        URL.revokeObjectURL(url);
+        
+        document.getElementById('exportStatus').textContent = '✓ CSV file downloaded!';
+        document.getElementById('exportStatus').style.display = 'block';
+    });
+    
+    document.getElementById('exportTxtBtn').addEventListener('click', () => {
+        const blob = new Blob([textList], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'photocull_winners.txt';
+        a.click();
+        URL.revokeObjectURL(url);
+        
+        document.getElementById('exportStatus').textContent = '✓ Text file downloaded!';
+        document.getElementById('exportStatus').style.display = 'block';
+    });
+    
+    document.getElementById('copyListBtn').addEventListener('click', () => {
+        navigator.clipboard.writeText(textList).then(() => {
+            document.getElementById('exportStatus').textContent = '✓ List copied to clipboard!';
+            document.getElementById('exportStatus').style.display = 'block';
+        }).catch(() => {
+            document.getElementById('exportStatus').textContent = '✗ Failed to copy';
+            document.getElementById('exportStatus').style.color = '#ef4444';
+            document.getElementById('exportStatus').style.display = 'block';
+        });
+    });
 }
 
 // Render summary statistics
