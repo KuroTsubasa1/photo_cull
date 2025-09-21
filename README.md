@@ -52,12 +52,31 @@ output/
 
 ## Review UI
 
-1. Run the CLI to generate `report.json`
-2. Open `ui/index.html` in your browser
-3. Load the `report.json` file
-4. Review bursts and clusters
-5. Click "Promote" to change winners
-6. Export the updated JSON
+### Method 1: Using the built-in server (Recommended)
+```bash
+# After running photocull to generate output
+cd ui
+python serve.py --output ../out
+
+# Or specify a custom output directory
+python serve.py --output /path/to/your/output
+```
+
+This will:
+- Start a local web server on http://localhost:8000
+- Automatically open your browser
+- Serve thumbnails properly for viewing
+
+### Method 2: Direct file opening (Limited)
+1. Open `ui/index.html` in your browser
+2. Load the `report.json` file
+3. Note: Images may not display due to browser security restrictions
+
+### Using the UI
+1. Browse bursts in the left sidebar
+2. Review clusters and their winners
+3. Click "Promote" to change winners
+4. Export the updated JSON with your changes
 
 ## How It Works
 

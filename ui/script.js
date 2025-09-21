@@ -352,16 +352,22 @@ function getFileName(path) {
 
 function getImageUrl(path) {
     // Handle different path formats
-    if (path.startsWith('file://')) {
+    if (path.startsWith('http://') || path.startsWith('https://')) {
+        return path;
+    } else if (path.startsWith('thumbnails/')) {
+        // Relative thumbnail path - will be served by our server
+        return '/' + path;
+    } else if (path.startsWith('/thumbnails/')) {
+        // Already has leading slash
+        return path;
+    } else if (path.startsWith('file://')) {
+        // File protocol - only works if browser allows it
         return path;
     } else if (path.startsWith('/')) {
+        // Absolute path - try file protocol
         return 'file://' + path;
-    } else if (path.includes('thumbnails/')) {
-        // Thumbnail path might be relative to output directory
-        // Try to construct proper path
-        return path;
     } else {
-        // Relative path - assume it's relative to the report
+        // Assume relative path
         return path;
     }
 }
